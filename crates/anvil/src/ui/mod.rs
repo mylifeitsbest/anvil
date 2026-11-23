@@ -8,6 +8,7 @@ pub mod lsp_ui;
 pub mod overlay;
 pub mod panel;
 pub mod sidebar;
+pub mod update_ui;
 
 use eframe::egui::{self, Align2, Color32, CornerRadius, Event, FontId, Key, Painter, Pos2, Rect, Shape, Stroke, StrokeKind, epaint, pos2, vec2};
 

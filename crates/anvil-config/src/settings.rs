@@ -30,6 +30,7 @@ pub struct Settings {
     pub toolchains: ToolchainSettings,
     pub lsp: LspSettings,
     pub collab: CollabSettings,
+    pub update: UpdateSettings,
 }
 
 // ---------------------------------------------------------------- тема
@@ -694,5 +695,30 @@ impl Default for CollabSettings {
             share_button: true,
             copy_invite: true,
         }
+    }
+}
+
+// ---------------------------------------------------------------- обновления
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct UpdateSettings {
+    /// Проверять новые версии на GitHub (через несколько секунд после запуска и потом по таймеру).
+    pub check: bool,
+    /// Как часто проверять, пока Anvil открыт, в часах (0 — только при запуске).
+    pub interval_hours: u32,
+    /// Сразу скачивать новую версию в фоне — останется нажать «Перезапустить».
+    pub auto_download: bool,
+    /// Если обновление скачано, но не установлено — поставить его при выходе.
+    pub install_on_exit: bool,
+    /// Предлагать и предварительные версии (beta, rc).
+    pub prerelease: bool,
+    /// Плашка в углу окна; `false` — только значок в строке состояния.
+    pub banner: bool,
+}
+
+impl Default for UpdateSettings {
+    fn default() -> Self {
+        Self { check: true, interval_hours: 6, auto_download: false, install_on_exit: true, prerelease: false, banner: true }
     }
 }

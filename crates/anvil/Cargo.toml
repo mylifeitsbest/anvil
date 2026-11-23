@@ -34,6 +34,8 @@ ignore.workspace = true
 rfd.workspace = true
 toml.workspace = true
 serde.workspace = true
+ureq.workspace = true
+ring.workspace = true
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"

@@ -183,6 +183,7 @@ pub struct AnvilApp {
     pub(crate) hover_rect: Option<Rect>,
     pub(crate) problems_scroll: f32,
     pub(crate) collab: crate::collab::Collab,
+    pub(crate) update: crate::update::Updater,
 }
 
 fn opener(path: &Path) {
@@ -329,8 +330,10 @@ impl AnvilApp {
             hover_rect: None,
             problems_scroll: 0.0,
             collab: crate::collab::Collab::default(),
+            update: crate::update::Updater::default(),
         };
         app.lsp.reg = lsp_reg;
+        app.update_init();
         for w in loaded.warnings.iter().chain(&theme_warn).chain(&key_warn).chain(&app.theme_reg.warnings.clone()).chain(&app.registry.warnings.clone()) {
             app.toast(w.clone(), ToastKind::Warn);
         }
@@ -350,7 +353,7 @@ impl AnvilApp {
                     app.open_path(&p);
                 }
             }
-        } else if app.settings.window.restore_session {
+        } else if app.settings.window.restore_session || app.args.updated {
             // копия: open_folder/open_path сохраняют сессию на каждом шаге и затёрли бы список вкладок
             let saved = app.session.clone();
             if let Some(root) = saved.root.as_deref().filter(|r| r.is_dir()) {
@@ -1352,6 +1355,10 @@ impl AnvilApp {
                 self.panel.open = !showing;
                 self.panel.tab = PanelTab::Problems;
             }
+            Cmd::UpdateCheck => self.update_check(true),
+            Cmd::UpdateInstall => self.update_next(),
+            Cmd::UpdateNotes => self.update_open_page(),
+            Cmd::UpdateSkip => self.update_skip(),
             Cmd::AppQuit => self.ctx().send_viewport_cmd(egui::ViewportCommand::Close),
         }
     }
@@ -1392,6 +1399,7 @@ impl AnvilApp {
         self.poll_background();
         self.collab_tick();
         self.lsp_tick();
+        self.update_tick();
         let theme_moving = self.theme.tick(self.now);
         self.colors = Colors::new(&self.theme.current, &self.settings);
 
@@ -1456,7 +1464,10 @@ impl AnvilApp {
         self.draw_lsp_popups(ui);
         self.draw_find(ui, editor_area, &rest);
         self.draw_palette(ui, full, &rest);
-        self.draw_toasts(ui, Rect::from_min_max(full.min, pos2(full.max.x, status_rect.min.y)));
+        // плашка обновления — в углу над строкой состояния, уведомления выше неё
+        let corner = Rect::from_min_max(full.min, pos2(full.max.x, status_rect.min.y));
+        let card_top = self.draw_update_card(ui, corner);
+        self.draw_toasts(ui, Rect::from_min_max(corner.min, pos2(corner.max.x, card_top)));
         if self.settings.window.custom_titlebar {
             self.window_edges(ui, full);
         }
@@ -1593,6 +1604,9 @@ impl AnvilApp {
                 }
             }
             "join" => self.collab_join(rest.trim()),
+            // плашка обновления: раскрыть / свернуть «Что нового»
+            "update-notes" => self.update.notes = !self.update.notes,
+            "update-hide" => self.update.hidden = !self.update.hidden,
             // пауза кадра — чтобы согласовать сценарии двух окон (только для проверок)
             "sleep" => std::thread::sleep(std::time::Duration::from_millis(rest.trim().parse().unwrap_or(0))),
             "quit" => {
@@ -1671,6 +1685,7 @@ impl eframe::App for AnvilApp {
         if let Some(r) = &self.panel.run {
             r.kill();
         }
+        self.update_on_exit();
     }
 }
 

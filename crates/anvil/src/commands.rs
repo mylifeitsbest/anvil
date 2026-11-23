@@ -103,6 +103,10 @@ pub enum Cmd {
     CollabCopyInvite,
     CollabCopyReadInvite,
     CollabLeave,
+    UpdateCheck,
+    UpdateInstall,
+    UpdateNotes,
+    UpdateSkip,
     AppQuit,
     About,
 }
@@ -214,6 +218,10 @@ cmds! {
     CollabCopyInvite, "collab.copy_invite", "Совместная работа: скопировать ссылку для редактирования";
     CollabCopyReadInvite, "collab.copy_read_invite", "Совместная работа: скопировать ссылку только для чтения";
     CollabLeave, "collab.leave", "Совместная работа: завершить или покинуть сессию";
+    UpdateCheck, "update.check", "Обновления: проверить";
+    UpdateInstall, "update.install", "Обновления: скачать и установить (перезапуск)";
+    UpdateNotes, "update.notes", "Обновления: что нового (страница релиза)";
+    UpdateSkip, "update.skip", "Обновления: пропустить эту версию";
     About, "app.about", "О программе";
     AppQuit, "app.quit", "Выход";
 }

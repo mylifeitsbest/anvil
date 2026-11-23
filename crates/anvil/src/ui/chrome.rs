@@ -428,6 +428,7 @@ impl AnvilApp {
 
         // справа налево
         let mut rx = rect.right() - 12.0;
+        rx = self.draw_update_status(ui, &p, rx, rect);
         let mut right = |p: &egui::Painter, s: &str, col: Color32, ctx: &egui::Context| {
             let w = text_width(ctx, s, &font);
             text(p, pos2(rx, cy), Align2::RIGHT_CENTER, s, font.clone(), col);

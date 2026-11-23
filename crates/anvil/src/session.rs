@@ -12,6 +12,8 @@ pub struct Session {
     pub active: usize,
     pub recent: Vec<PathBuf>,
     pub panel_open: bool,
+    /// Версия, о которой не напоминать («Обновления: пропустить эту версию»).
+    pub skipped_update: Option<String>,
 }
 
 impl Session {

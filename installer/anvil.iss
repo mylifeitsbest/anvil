@@ -6,6 +6,10 @@
 ; По умолчанию ставится только для текущего пользователя — без прав
 ; администратора, в %LOCALAPPDATA%\Programs\Anvil. В мастере можно выбрать
 ; установку для всех пользователей (тогда Windows спросит разрешение).
+;
+; Обновление из самого Anvil: установщик запускается тихо в ту же папку —
+;   anvil-setup-x64.exe /SILENT /DIR=… /CURRENTUSER /RELAUNCH=1
+; закрывает работающий Anvil, ставит новую версию и открывает её с --updated.
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
@@ -33,7 +37,7 @@ DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 DisableWelcomePage=no
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
+PrivilegesRequiredOverridesAllowed=commandline dialog
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
@@ -100,8 +104,15 @@ Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; Value
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
+; обновление из Anvil: открыть новую версию (прошлая сессия восстановится)
+Filename: "{app}\{#AppExe}"; Parameters: "--updated"; WorkingDir: "{userdocs}"; Flags: nowait runasoriginaluser skipifnotsilent; Check: RelaunchRequested
 
 [Code]
+function RelaunchRequested: Boolean;
+begin
+  Result := ExpandConstant('{param:RELAUNCH|0}') = '1';
+end;
+
 function NeedsAddPath(Dir: string): Boolean;
 var
   Path: string;
