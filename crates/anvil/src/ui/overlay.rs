@@ -16,12 +16,26 @@ use crate::theme::{c32, mix, with_alpha};
 pub enum PalMode {
     Commands,
     Files,
-    Themes { original: String },
-    Accent { original: Option<Rgba> },
+    Themes {
+        original: String,
+    },
+    Accent {
+        original: Option<Rgba>,
+    },
     GotoLine,
     Pick(Pick),
-    Rename { doc: u64, at: usize, old: String },
-    Locations { title: String },
+    Rename {
+        doc: u64,
+        at: usize,
+        old: String,
+    },
+    Locations {
+        title: String,
+    },
+    /// Совместная работа: ввести ссылку-приглашение.
+    Join,
+    /// Совместная работа: участники, приглашения, файлы сессии.
+    Session,
 }
 
 impl PalMode {
@@ -35,6 +49,8 @@ impl PalMode {
             PalMode::Pick(_) => 5,
             PalMode::Rename { .. } => 6,
             PalMode::Locations { .. } => 7,
+            PalMode::Join => 8,
+            PalMode::Session => 9,
         }
     }
 }
@@ -50,7 +66,18 @@ pub enum PalAction {
     ImportTheme(PathBuf),
     Location(PathBuf, anvil_lsp::lsp_types::Position, anvil_lsp::Enc),
     Rename(u64, usize),
+    Collab(CollabAct),
     None,
+}
+
+#[derive(Clone, Debug)]
+pub enum CollabAct {
+    Join,
+    CopyEdit,
+    CopyRead,
+    Peer(u32),
+    Open(u64),
+    Leave,
 }
 
 #[derive(Clone, Debug)]
@@ -313,6 +340,76 @@ impl AnvilApp {
                 let action = if new.is_empty() || new == old { PalAction::None } else { PalAction::Rename(*doc, *at) };
                 items.push((0, item(label, "во всех файлах проекта".into(), "Enter".into(), action)));
             }
+            PalMode::Join => {
+                let link = q.trim();
+                let (label, detail, action) = match anvil_collab::Invite::parse(link) {
+                    Ok(inv) => (
+                        format!("Присоединиться к сессии на {}", inv.host),
+                        "TLS 1.3 · сертификат сверяется по отпечатку из ссылки".to_string(),
+                        PalAction::Collab(CollabAct::Join),
+                    ),
+                    Err(_) if link.is_empty() => ("Вставьте ссылку-приглашение (Ctrl+V)".into(), "anvil://хост:порт/токен?fp=…".into(), PalAction::None),
+                    Err(e) => (format!("Ссылка не подходит: {e}"), String::new(), PalAction::None),
+                };
+                items.push((0, item(label, detail, "Enter".into(), action)));
+            }
+            PalMode::Session => {
+                if let Some(sess) = &self.collab.session {
+                    let live = sess.phase == crate::collab::Phase::Live;
+                    let mut list: Vec<PalItem> = Vec::new();
+                    if !live {
+                        list.push(item("Подключение…".into(), sess.relay_label.clone(), String::new(), PalAction::None));
+                    }
+                    if sess.invites.is_some() {
+                        list.push(item(
+                            "Скопировать ссылку для редактирования".into(),
+                            "с правом правки".into(),
+                            String::new(),
+                            PalAction::Collab(CollabAct::CopyEdit),
+                        ));
+                        list.push(item(
+                            "Скопировать ссылку только для чтения".into(),
+                            "смотрит без правок".into(),
+                            String::new(),
+                            PalAction::Collab(CollabAct::CopyRead),
+                        ));
+                    }
+                    let me = crate::collab::my_name(&self.settings.collab);
+                    let mut it = item(format!("{me} (вы)"), sess.role.label().to_string(), String::new(), PalAction::None);
+                    it.swatch = vec![crate::collab::color32(crate::collab::my_color(&self.settings.collab, &me))];
+                    list.push(it);
+                    for pv in sess.peers.values() {
+                        let where_ = pv.doc.and_then(|d| sess.docs.get(&d)).map(|d| d.path.clone()).unwrap_or_else(|| "не в общем файле".into());
+                        let mut it = item(
+                            pv.info.name.clone(),
+                            format!("{} · {where_}", pv.info.role.label()),
+                            "перейти".into(),
+                            PalAction::Collab(CollabAct::Peer(pv.info.id)),
+                        );
+                        it.swatch = vec![crate::collab::color32(pv.info.color)];
+                        list.push(it);
+                    }
+                    if !sess.host {
+                        for (id, d) in &sess.docs {
+                            list.push(item(d.path.clone(), "файл сессии".into(), "открыть".into(), PalAction::Collab(CollabAct::Open(*id))));
+                        }
+                    }
+                    let leave = if sess.host { "Завершить сессию" } else { "Покинуть сессию" };
+                    let detail = if sess.host {
+                        format!("{} · участники отключатся", sess.relay_label)
+                    } else {
+                        "открытые файлы останутся копиями".into()
+                    };
+                    list.push(item(leave.into(), detail, String::new(), PalAction::Collab(CollabAct::Leave)));
+                    for (i, it) in list.into_iter().enumerate() {
+                        let hay = format!("{} {}", it.label, it.detail);
+                        if let Some((score, hl)) = fuzzy(&q, &hay) {
+                            let hl = if q.is_empty() { Vec::new() } else { hl.into_iter().filter(|x| *x < it.label.chars().count()).collect() };
+                            items.push((score * 1000 - i as i32, PalItem { hl, ..it }));
+                        }
+                    }
+                }
+            }
             PalMode::Locations { .. } => {
                 let fixed = self.palette.as_ref().map(|p| p.fixed.clone()).unwrap_or_default();
                 for (i, it) in fixed.into_iter().enumerate() {
@@ -354,8 +451,8 @@ impl AnvilApp {
                 }
             }
         }
-        let keep_order =
-            (matches!(mode, PalMode::Themes { .. } | PalMode::Accent { .. } | PalMode::Pick(_)) && q.is_empty()) || matches!(mode, PalMode::Rename { .. });
+        let keep_order = (matches!(mode, PalMode::Themes { .. } | PalMode::Accent { .. } | PalMode::Pick(_)) && q.is_empty())
+            || matches!(mode, PalMode::Rename { .. } | PalMode::Join | PalMode::Session);
         if !keep_order {
             items.sort_by_key(|x| std::cmp::Reverse(x.0));
         }
@@ -436,6 +533,17 @@ impl AnvilApp {
                 let name = self.palette.as_ref().map(|p| p.input.text.trim().to_string()).unwrap_or_default();
                 self.lsp_rename(doc, at, &name);
             }
+            PalAction::Collab(act) => match act {
+                CollabAct::Join => {
+                    let link = self.palette.as_ref().map(|p| p.input.text.trim().to_string()).unwrap_or_default();
+                    self.collab_join(&link);
+                }
+                CollabAct::CopyEdit => self.collab_copy_invite(false),
+                CollabAct::CopyRead => self.collab_copy_invite(true),
+                CollabAct::Peer(id) => self.collab_goto_peer(id),
+                CollabAct::Open(id) => self.collab_open_doc(id),
+                CollabAct::Leave => self.collab_end(None),
+            },
             PalAction::None => {}
         }
     }
@@ -537,6 +645,8 @@ impl AnvilApp {
             PalMode::Pick(pk) => (Icon::Search, Some(pick_options(*pk).1), "Выберите вариант"),
             PalMode::Rename { .. } => (Icon::Search, Some("Переименовать"), "Новое имя"),
             PalMode::Locations { title } => (Icon::Search, Some(title.as_str()), "Фильтр по файлу или тексту"),
+            PalMode::Join => (Icon::Users, Some("Войти"), "anvil://хост:порт/токен?fp=…"),
+            PalMode::Session => (Icon::Users, Some("Сессия"), "Участники, приглашения, файлы"),
         };
         icon(&pp, Rect::from_min_size(pos2(input_r.left() + 16.0, input_r.center().y - 8.0), vec2(16.0, 16.0)), ic, with_alpha(c.text_faint, k), 1.4);
         let mut tx = input_r.left() + 42.0;

@@ -50,6 +50,8 @@ pub struct Document {
     pub large: bool,
     pub view: View,
     pub disk_mtime: Option<SystemTime>,
+    /// Документ из чужой сессии: путь у хозяина. На диск не пишется, сохраняет хозяин.
+    pub remote: Option<String>,
 }
 
 pub fn edit_config(lang: &Language, s: &Settings) -> EditConfig {
@@ -86,6 +88,7 @@ impl Document {
             large,
             view: View { reveal: true, activity: now, ..View::default() },
             disk_mtime: mtime(path),
+            remote: None,
         })
     }
 
@@ -103,11 +106,38 @@ impl Document {
             large: false,
             view: View { activity: now, ..View::default() },
             disk_mtime: None,
+            remote: None,
+        }
+    }
+
+    /// Документ гостя в сессии: текст придёт от хозяина, язык — по пути у хозяина.
+    pub fn remote(path: &str, text: &str, readonly: bool, id: u64, s: &Settings, now: f64) -> Self {
+        let lang = anvil_syntax::detect(Path::new(path));
+        let name = path.rsplit('/').next().unwrap_or(path).to_string();
+        let mut buffer = Buffer::default();
+        // текст уже нормализован у хозяина — без повторной обработки переводов строк
+        buffer.rope = anvil_core::Rope::from_str(text);
+        buffer.journal = Some(Vec::new());
+        let mut ed = Editor::new(buffer, edit_config(lang, s));
+        ed.readonly = readonly;
+        Self {
+            id,
+            path: None,
+            name,
+            lang,
+            ed,
+            spans: Vec::new(),
+            brackets: Vec::new(),
+            hl_version: u64::MAX,
+            large: false,
+            view: View { reveal: true, activity: now, ..View::default() },
+            disk_mtime: None,
+            remote: Some(path.to_string()),
         }
     }
 
     pub fn dirty(&self) -> bool {
-        self.ed.buffer.is_dirty()
+        self.remote.is_none() && self.ed.buffer.is_dirty()
     }
 
     pub fn set_path(&mut self, path: &Path, s: &Settings) {
@@ -133,6 +163,19 @@ impl Document {
             return false;
         }
         match Buffer::load(&path) {
+            // общий документ: изменение с диска — обычная правка, чтобы она ушла участникам
+            Ok(b) if self.ed.buffer.journal.is_some() => {
+                let old = self.ed.buffer.rope.to_string();
+                let new = b.rope.to_string();
+                let pre = old.chars().zip(new.chars()).take_while(|(a, b)| a == b).count();
+                let (ol, nl) = (old.chars().count(), new.chars().count());
+                let suf = old.chars().rev().zip(new.chars().rev()).take_while(|(a, b)| a == b).count().min(ol - pre).min(nl - pre);
+                let ins: String = new.chars().skip(pre).take(nl - pre - suf).collect();
+                self.ed.replace_ranges(vec![(pre, ol - suf, ins)]);
+                self.ed.buffer.mark_saved();
+                self.disk_mtime = now;
+                true
+            }
             Ok(b) => {
                 let head = self.ed.sel.primary().head;
                 self.ed.buffer = b;

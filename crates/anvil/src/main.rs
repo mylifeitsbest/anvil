@@ -3,6 +3,7 @@
 
 mod anim;
 mod app;
+mod collab;
 mod commands;
 mod doc;
 mod fonts;
@@ -31,6 +32,8 @@ pub struct Args {
     pub goto: Option<(usize, usize)>,
     /// Сценарий для демонстраций и проверок: строки `at КАДР действие`.
     pub script: Vec<(u64, String)>,
+    /// Войти в сессию совместной работы по ссылке-приглашению.
+    pub join: Option<String>,
 }
 
 fn parse_args() -> Result<Args, String> {
@@ -69,6 +72,7 @@ fn parse_args() -> Result<Args, String> {
                 let (l, c) = v.split_once(':').unwrap_or((v.as_str(), "1"));
                 a.goto = Some((l.parse().map_err(|_| "--goto: строка")?, c.parse().map_err(|_| "--goto: колонка")?));
             }
+            "--join" => a.join = Some(it.next().ok_or("--join: нужна ссылка anvil://…")?.to_string_lossy().to_string()),
             "--run" => a.run = it.next().map(|v| v.to_string_lossy().split(',').map(|s| s.trim().to_string()).collect()).ok_or("--run: нужен список")?,
             _ => a.paths.push(PathBuf::from(arg)),
         }

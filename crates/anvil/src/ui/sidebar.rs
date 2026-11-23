@@ -102,6 +102,11 @@ impl AnvilApp {
     fn draw_tree(&mut self, ui: &mut egui::Ui, rect: Rect) {
         let c = self.colors.clone();
         let p = ui.painter().with_clip_rect(rect);
+        // гость в сессии без своей папки — файлы, которыми поделился хозяин
+        if self.ws.root.is_none() && self.collab.session.as_ref().is_some_and(|s| !s.host) {
+            self.draw_session_files(ui, rect);
+            return;
+        }
         if self.ws.root.is_none() {
             let b = Rect::from_min_size(pos2(rect.left() + 14.0, rect.top() + 12.0), vec2(rect.width() - 28.0, 32.0));
             let resp = ui.interact(b, Id::unique("tree-open"), Sense::click());

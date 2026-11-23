@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use ropey::Rope;
 
-use crate::history::{EditKind, History, Transaction};
+use crate::history::{Change, EditKind, History, Transaction};
 use crate::selection::Selections;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -34,6 +34,8 @@ pub struct Buffer {
     pub bom: bool,
     /// Файл был не в UTF-8 и прочитан с заменой символов.
     pub lossy: bool,
+    /// Журнал своих правок для совместной работы (`None` — не ведётся и ничего не стоит).
+    pub journal: Option<Vec<Change>>,
     saved_at: usize,
 }
 
@@ -59,6 +61,7 @@ impl Buffer {
             line_ending: if crlf { LineEnding::CrLf } else { LineEnding::Lf },
             bom,
             lossy: false,
+            journal: None,
             saved_at: 0,
         }
     }
@@ -123,20 +126,47 @@ impl Buffer {
             return;
         }
         tx.apply(&mut self.rope);
+        if let Some(j) = self.journal.as_mut() {
+            j.extend(tx.changes.iter().cloned());
+        }
         self.history.record(tx, kind, Instant::now());
         self.version += 1;
     }
 
+    /// Применить правки со стороны (другого участника): в историю попадают, в журнал — нет.
+    pub fn apply_external(&mut self, tx: Transaction) {
+        if tx.is_empty() {
+            return;
+        }
+        tx.apply(&mut self.rope);
+        self.history.record(tx, EditKind::Other, Instant::now());
+        self.history.seal();
+        self.version += 1;
+    }
+
     pub fn undo(&mut self) -> Option<Selections> {
+        let changes = if self.journal.is_some() { self.history.undo_changes() } else { None };
         let s = self.history.undo(&mut self.rope)?;
+        if let (Some(j), Some(c)) = (self.journal.as_mut(), changes) {
+            j.extend(c);
+        }
         self.version += 1;
         Some(s)
     }
 
     pub fn redo(&mut self) -> Option<Selections> {
+        let changes = if self.journal.is_some() { self.history.redo_changes() } else { None };
         let s = self.history.redo(&mut self.rope)?;
+        if let (Some(j), Some(c)) = (self.journal.as_mut(), changes) {
+            j.extend(c);
+        }
         self.version += 1;
         Some(s)
+    }
+
+    /// Забрать накопленный журнал своих правок.
+    pub fn take_journal(&mut self) -> Vec<Change> {
+        self.journal.as_mut().map(std::mem::take).unwrap_or_default()
     }
 }
 

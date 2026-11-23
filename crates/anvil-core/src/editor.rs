@@ -70,6 +70,8 @@ pub struct Editor {
     pub sel: Selections,
     pub cfg: EditConfig,
     pub last: EditEvent,
+    /// Только просмотр: любые правки игнорируются (курсор и выделение работают).
+    pub readonly: bool,
 }
 
 /// Замена диапазона исходного текста; `anchor`/`head` — новое выделение относительно `start`.
@@ -86,7 +88,7 @@ type LineEdit = (usize, usize, String);
 
 impl Editor {
     pub fn new(buffer: Buffer, cfg: EditConfig) -> Self {
-        Self { buffer, sel: Selections::single(0), cfg, last: EditEvent::default() }
+        Self { buffer, sel: Selections::single(0), cfg, last: EditEvent::default(), readonly: false }
     }
 
     pub fn from_text(text: &str) -> Self {
@@ -108,6 +110,9 @@ impl Editor {
     // ------------------------------------------------------------------ ядро применения правок
 
     fn apply_repls(&mut self, mut repls: Vec<Repl>, kind: EditKind) {
+        if self.readonly {
+            return;
+        }
         repls.sort_by_key(|r| (r.start, r.end));
         let before = self.sel.clone();
         let mut changes = Vec::new();
@@ -145,6 +150,9 @@ impl Editor {
 
     /// Правки в исходных координатах (по возрастанию, без пересечений) + функция новых выделений.
     fn commit_edits(&mut self, mut edits: Vec<LineEdit>, kind: EditKind, make_sel: impl FnOnce(&Rope, &[LineEdit]) -> Selections) {
+        if self.readonly {
+            return;
+        }
         edits.sort_by_key(|e| (e.0, e.1));
         edits.dedup_by(|b, a| b.0 < a.1 || (b.0 == a.0 && b.1 == a.1 && b.2 == a.2));
         if edits.is_empty() {
@@ -822,6 +830,9 @@ impl Editor {
     }
 
     pub fn undo(&mut self) -> bool {
+        if self.readonly {
+            return false;
+        }
         match self.buffer.undo() {
             Some(s) => {
                 self.sel = s;
@@ -833,6 +844,9 @@ impl Editor {
     }
 
     pub fn redo(&mut self) -> bool {
+        if self.readonly {
+            return false;
+        }
         match self.buffer.redo() {
             Some(s) => {
                 self.sel = s;
@@ -841,6 +855,45 @@ impl Editor {
             }
             None => false,
         }
+    }
+
+    /// Правки другого участника: `(начало, сколько удалить, что вставить)` в символах, по порядку,
+    /// каждая — в координатах после предыдущей. Свои курсоры сдвигаются, но не «уезжают» за
+    /// чужой вставкой ровно в месте курсора. В журнал совместной работы правки не попадают.
+    pub fn apply_remote(&mut self, edits: &[(usize, usize, String)]) {
+        if edits.is_empty() {
+            return;
+        }
+        let before = self.sel.clone();
+        let mut rope = self.buffer.rope.clone();
+        let mut sel = self.sel.clone();
+        let mut changes = Vec::with_capacity(edits.len());
+        for (start, remove, insert) in edits {
+            let len = rope.len_chars();
+            let start = (*start).min(len);
+            let end = (start + remove).min(len);
+            let c = Change { start, removed: rope.slice(start..end).to_string(), inserted: insert.clone() };
+            c.apply(&mut rope);
+            let (rem, ins) = (end - start, insert.chars().count());
+            let map = |p: usize| -> usize {
+                if p < start || (p == start && rem == 0) {
+                    p
+                } else if p >= start + rem {
+                    p - rem + ins
+                } else {
+                    start
+                }
+            };
+            for s in &mut sel.list {
+                s.anchor = map(s.anchor);
+                s.head = map(s.head);
+            }
+            changes.push(c);
+        }
+        sel.normalize();
+        sel.clamp(rope.len_chars());
+        self.buffer.apply_external(Transaction { changes, before, after: sel.clone() });
+        self.sel = sel;
     }
 
     /// Строка и колонка основного курсора (с нуля).
@@ -1033,5 +1086,56 @@ mod tests {
         let r = search::replacements(e.rope(), "a", "bb", SearchOptions::default()).unwrap_or_default();
         e.replace_ranges(r);
         assert_eq!(e.text(), "bb-bb-bb");
+    }
+
+    #[test]
+    fn journal_records_own_edits_and_undo() {
+        let mut e = ed("abc", 3);
+        e.buffer.journal = Some(Vec::new());
+        type_str(&mut e, "d");
+        e.backspace();
+        e.undo();
+        let j = e.buffer.take_journal();
+        // каждую запись журнала можно воспроизвести на исходном тексте и получить текущий
+        let mut r = Rope::from_str("abc");
+        for c in &j {
+            c.apply(&mut r);
+        }
+        assert_eq!(r.to_string(), e.text());
+        assert!(!j.is_empty());
+        assert!(e.buffer.take_journal().is_empty());
+    }
+
+    #[test]
+    fn remote_edits_shift_cursor_but_not_journal() {
+        let mut e = ed("hello world", 6);
+        e.buffer.journal = Some(Vec::new());
+        // вставка перед курсором сдвигает его, вставка ровно в курсоре — нет
+        e.apply_remote(&[(0, 0, "ну, ".into())]);
+        assert_eq!(e.sel.primary().head, 10);
+        e.apply_remote(&[(10, 0, "мир и ".into())]);
+        assert_eq!(e.sel.primary().head, 10);
+        // удаление вокруг курсора ставит его в начало удалённого
+        e.apply_remote(&[(8, 4, String::new())]);
+        assert_eq!(e.text(), "ну, hellр и world");
+        assert_eq!(e.sel.primary().head, 8);
+        assert!(e.buffer.take_journal().is_empty());
+        assert!(e.buffer.is_dirty());
+    }
+
+    #[test]
+    fn readonly_blocks_edits() {
+        let mut e = ed("abc", 1);
+        e.readonly = true;
+        type_str(&mut e, "zz");
+        e.backspace();
+        e.paste("q");
+        e.delete_lines();
+        assert!(!e.undo());
+        assert_eq!(e.text(), "abc");
+        e.move_cursors(Move::Right, false);
+        assert_eq!(e.sel.primary().head, 2);
+        e.apply_remote(&[(0, 0, "x".into())]);
+        assert_eq!(e.text(), "xabc");
     }
 }

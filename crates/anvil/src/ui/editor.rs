@@ -471,6 +471,9 @@ impl AnvilApp {
             }
         }
 
+        // чужие курсоры (совместная работа)
+        let remote = self.remote_carets(idx);
+
         // ---------------------------------------------------------------- отрисовка
         let p = ui.painter().with_clip_rect(rect);
         let tp = ui.painter().with_clip_rect(Rect::from_min_max(pos2(gutter_right + 4.0, rect.top()), pos2(rect.right() - mm_w, rect.bottom())));
@@ -647,6 +650,21 @@ impl AnvilApp {
             }
             for r in seg_rect(sl.start(), sl.end(), true) {
                 tp.rect_filled(r.expand2(vec2(0.0, 1.0)), cr(3.0), sel_col);
+            }
+        }
+
+        // чужие выделения
+        if s.collab.selections {
+            for rc in &remote {
+                for &(a, h) in &rc.sels {
+                    let (lo, hi) = (a.min(h), a.max(h));
+                    if lo == hi || hi < first_char || lo > last_char {
+                        continue;
+                    }
+                    for r in seg_rect(lo, hi, true) {
+                        tp.rect_filled(r.expand2(vec2(0.0, 1.0)), cr(3.0), with_alpha(rc.color, 0.2));
+                    }
+                }
             }
         }
 
@@ -926,6 +944,41 @@ impl AnvilApp {
             }
         }
 
+        // чужие курсоры: линия цвета участника, подпись с именем, метка на полях
+        let label_font = FontId::new((fs * 0.72).round().clamp(9.0, 16.0), fonts::bold_family());
+        for rc in &remote {
+            for (k, &(_, h)) in rc.sels.iter().enumerate() {
+                let h = h.min(rope.len_chars());
+                let l = rope.char_to_line(h);
+                if l + 1 < first || l > last {
+                    continue;
+                }
+                let x = ox + ctext::display_col(&rope, h, tab) as f32 * char_w;
+                let y = line_y(l);
+                tp.rect_filled(Rect::from_min_size(pos2(x - 1.0, y + 1.0), vec2(2.0, line_h - 2.0)), cr(1.0), rc.color);
+                if s.collab.gutter_marks {
+                    p.rect_filled(Rect::from_min_size(pos2(rect.left() + 2.0, y + 2.0), vec2(3.0, line_h - 4.0)), cr(1.5), rc.color);
+                }
+                if k == 0 && rc.label > 0.01 {
+                    let w = super::text_width(&ctx, &rc.name, &label_font) + 10.0;
+                    let lh = label_font.size + 5.0;
+                    // над строкой; у верхнего края — под ней
+                    let ly = if y - lh < rect.top() { y + line_h } else { y - lh };
+                    let r = Rect::from_min_size(pos2(x - 1.0, ly), vec2(w, lh));
+                    let rr = egui::CornerRadius { nw: 3, ne: 3, se: 3, sw: if ly < y { 0 } else { 3 } };
+                    tp.rect_filled(r, rr, with_alpha(rc.color, rc.label));
+                    text(
+                        &tp,
+                        pos2(r.left() + 5.0, r.center().y),
+                        Align2::LEFT_CENTER,
+                        &rc.name,
+                        label_font.clone(),
+                        with_alpha(super::collab_ui::on_color(rc.color), rc.label),
+                    );
+                }
+            }
+        }
+
         // частицы эффектов ввода
         if !self.particles.is_empty() {
             self.tw.active = true;
@@ -1072,6 +1125,19 @@ impl AnvilApp {
                         egui::CornerRadius::ZERO,
                         if *sev == 1 { c.err } else { c.warn },
                     );
+                }
+            }
+            for rc in &remote {
+                for &(_, h) in rc.sels.iter().take(1) {
+                    let l = rope.char_to_line(h.min(rope.len_chars()));
+                    if l >= start && l < start + mm_lines {
+                        let y = mm.top() + (l - start) as f32 * lp;
+                        mmp.rect_filled(
+                            Rect::from_min_size(pos2(mm.left() + 1.0, y - 1.0), vec2(mm_w - 2.0, lp.max(2.0) + 1.0)),
+                            egui::CornerRadius::ZERO,
+                            with_alpha(rc.color, 0.35),
+                        );
+                    }
                 }
             }
             if mm_resp.is_pointer_button_down_on()

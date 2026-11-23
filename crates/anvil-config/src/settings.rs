@@ -29,6 +29,7 @@ pub struct Settings {
     pub keymap: KeymapSettings,
     pub toolchains: ToolchainSettings,
     pub lsp: LspSettings,
+    pub collab: CollabSettings,
 }
 
 // ---------------------------------------------------------------- тема
@@ -633,6 +634,65 @@ impl Default for LspSettings {
             inline_diagnostics: InlineDiagnostics::Errors,
             format_on_save: false,
             servers: BTreeMap::new(),
+        }
+    }
+}
+
+// ---------------------------------------------------------------- совместная работа
+
+/// Подписи с именами над чужими курсорами.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CursorLabels {
+    Always,
+    /// Несколько секунд после движения курсора.
+    Activity,
+    Never,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CollabSettings {
+    /// Имя, которое видят участники (пусто — имя пользователя системы).
+    pub name: String,
+    /// Цвет своего курсора у других (`None` — подобрать по имени).
+    pub color: Option<Rgba>,
+    /// Адрес relay (`anvil://хост:порт?fp=…&key=…`); пусто — встроенный relay для локальной сети.
+    pub relay: String,
+    /// Порт встроенного relay.
+    pub port: u16,
+    /// На каком адресе слушает встроенный relay: `0.0.0.0` — вся локальная сеть, `127.0.0.1` — только этот компьютер.
+    pub listen: String,
+    /// Адрес для ссылок встроенного relay (пусто — найти IP в локальной сети).
+    pub public_host: String,
+    pub labels: CursorLabels,
+    /// Сколько секунд подпись видна после движения (для `labels = "activity"`).
+    pub label_seconds: f32,
+    /// Подсвечивать чужие выделения.
+    pub selections: bool,
+    /// Полоски на полях у строк, где стоят чужие курсоры.
+    pub gutter_marks: bool,
+    /// Кнопка «Поделиться» в заголовке окна.
+    pub share_button: bool,
+    /// Ссылка для редактирования сразу копируется в буфер обмена.
+    pub copy_invite: bool,
+}
+
+impl Default for CollabSettings {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            color: None,
+            relay: String::new(),
+            port: 7878,
+            listen: "0.0.0.0".into(),
+            public_host: String::new(),
+            labels: CursorLabels::Activity,
+            label_seconds: 3.0,
+            selections: true,
+            gutter_marks: true,
+            share_button: true,
+            copy_invite: true,
         }
     }
 }

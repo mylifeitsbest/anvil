@@ -182,6 +182,7 @@ pub struct AnvilApp {
     pub(crate) geom: Option<crate::lsp::EditorGeom>,
     pub(crate) hover_rect: Option<Rect>,
     pub(crate) problems_scroll: f32,
+    pub(crate) collab: crate::collab::Collab,
 }
 
 fn opener(path: &Path) {
@@ -327,6 +328,7 @@ impl AnvilApp {
             geom: None,
             hover_rect: None,
             problems_scroll: 0.0,
+            collab: crate::collab::Collab::default(),
         };
         app.lsp.reg = lsp_reg;
         for w in loaded.warnings.iter().chain(&theme_warn).chain(&key_warn).chain(&app.theme_reg.warnings.clone()).chain(&app.registry.warnings.clone()) {
@@ -349,17 +351,20 @@ impl AnvilApp {
                 }
             }
         } else if app.settings.window.restore_session {
-            if let Some(root) = app.session.root.clone().filter(|r| r.is_dir()) {
-                app.open_folder(&root);
+            // копия: open_folder/open_path сохраняют сессию на каждом шаге и затёрли бы список вкладок
+            let saved = app.session.clone();
+            if let Some(root) = saved.root.as_deref().filter(|r| r.is_dir()) {
+                app.open_folder(root);
             }
-            for f in app.session.open.clone() {
-                if f.is_file() {
-                    app.open_path(&f);
-                }
+            for f in saved.open.iter().filter(|f| f.is_file()) {
+                app.open_path(f);
             }
+            // активная вкладка — по пути: часть файлов могла исчезнуть с диска
+            let active = saved.open.get(saved.active).and_then(|p| app.docs.iter().position(|d| d.path.as_deref() == Some(p.as_path())));
             if !app.docs.is_empty() {
-                app.active = Some(app.session.active.min(app.docs.len() - 1));
+                app.activate(active.unwrap_or(app.docs.len() - 1));
             }
+            app.save_session();
         }
         app
     }
@@ -381,6 +386,13 @@ impl AnvilApp {
         if self.toasts.len() > 5 {
             self.toasts.remove(0);
         }
+    }
+
+    /// Новый идентификатор вкладки.
+    pub(crate) fn alloc_doc_id(&mut self) -> u64 {
+        let id = self.next_id;
+        self.next_id += 1;
+        id
     }
 
     pub fn status(&mut self, text: impl Into<String>) {
@@ -470,6 +482,9 @@ impl AnvilApp {
     }
 
     pub fn save_doc(&mut self, i: usize, ask_path: bool) -> bool {
+        if !ask_path && self.collab_request_save(i) {
+            return true;
+        }
         let need_path = ask_path || self.docs.get(i).is_some_and(|d| d.path.is_none());
         if need_path {
             let start = self.ws.root.clone();
@@ -524,6 +539,8 @@ impl AnvilApp {
     }
 
     pub fn close_tab(&mut self, i: usize, force: bool) {
+        // несохранённые в CRDT правки закрываемой вкладки — участникам
+        self.collab_flush();
         let Some(d) = self.docs.get(i) else { return };
         if d.dirty() && !force {
             let armed = self.close_armed.is_some_and(|(id, t)| id == d.id && self.now - t < 4.0);
@@ -1105,12 +1122,38 @@ impl AnvilApp {
                 self.reload_settings();
                 self.save_session();
             }
-            Cmd::EditUndo => ed_cmd(self, &|e| {
-                e.undo();
-            }),
-            Cmd::EditRedo => ed_cmd(self, &|e| {
-                e.redo();
-            }),
+            Cmd::EditUndo => {
+                if !self.collab_undo(false) {
+                    ed_cmd(self, &|e| {
+                        e.undo();
+                    })
+                }
+            }
+            Cmd::EditRedo => {
+                if !self.collab_undo(true) {
+                    ed_cmd(self, &|e| {
+                        e.redo();
+                    })
+                }
+            }
+            Cmd::CollabShare => self.collab_share(),
+            Cmd::CollabJoin => self.open_palette(PalMode::Join),
+            Cmd::CollabSession => {
+                if self.collab.session.is_some() {
+                    self.open_palette(PalMode::Session);
+                } else {
+                    self.toast("Сессии нет — «Поделиться» или «Присоединиться по ссылке»", ToastKind::Info);
+                }
+            }
+            Cmd::CollabCopyInvite => self.collab_copy_invite(false),
+            Cmd::CollabCopyReadInvite => self.collab_copy_invite(true),
+            Cmd::CollabLeave => {
+                if self.collab.session.is_some() {
+                    self.collab_end(None);
+                } else {
+                    self.status("Сессии нет");
+                }
+            }
             Cmd::EditSelectAll => ed_cmd(self, &|e| e.select_all()),
             Cmd::EditSelectLine => ed_cmd(self, &|e| e.select_line()),
             Cmd::EditSelectNext => ed_cmd(self, &|e| {
@@ -1347,6 +1390,7 @@ impl AnvilApp {
             self.rescan_tools();
         }
         self.poll_background();
+        self.collab_tick();
         self.lsp_tick();
         let theme_moving = self.theme.tick(self.now);
         self.colors = Colors::new(&self.theme.current, &self.settings);
@@ -1451,6 +1495,11 @@ impl AnvilApp {
             d.view.reveal = true;
             d.view.center = true;
         }
+        if self.frame_no == 3
+            && let Some(link) = self.args.join.clone()
+        {
+            self.collab_join(&link);
+        }
         if self.frame_no == self.args.run_at && !self.args.run.is_empty() {
             for id in self.args.run.clone() {
                 match crate::commands::by_id(&id) {
@@ -1533,7 +1582,21 @@ impl AnvilApp {
                 self.lsp.completion = None;
                 self.close_palette(false);
             }
+            // совместная работа: записать ссылку-приглашение в файл / войти по ссылке
+            "invite" | "invite-read" => {
+                let link = self.collab.session.as_ref().and_then(|s| s.invites.clone()).map(|(e, r)| if verb == "invite" { e } else { r });
+                match link {
+                    Some(l) => {
+                        let _ = std::fs::write(rest.trim(), l);
+                    }
+                    None => self.toast("--script: сессия ещё не открыта", ToastKind::Warn),
+                }
+            }
+            "join" => self.collab_join(rest.trim()),
+            // пауза кадра — чтобы согласовать сценарии двух окон (только для проверок)
+            "sleep" => std::thread::sleep(std::time::Duration::from_millis(rest.trim().parse().unwrap_or(0))),
             "quit" => {
+                self.collab_end(None);
                 self.lsp_shutdown_all();
                 std::process::exit(0);
             }
@@ -1602,6 +1665,7 @@ impl eframe::App for AnvilApp {
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        self.collab_end(None);
         self.save_session();
         self.lsp_shutdown_all();
         if let Some(r) = &self.panel.run {

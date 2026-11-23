@@ -97,6 +97,12 @@ pub enum Cmd {
     PrevProblem,
     LspRestart,
     ViewProblems,
+    CollabShare,
+    CollabJoin,
+    CollabSession,
+    CollabCopyInvite,
+    CollabCopyReadInvite,
+    CollabLeave,
     AppQuit,
     About,
 }
@@ -202,6 +208,12 @@ cmds! {
     PrevProblem, "lsp.prev_problem", "Проблемы: предыдущая";
     ViewProblems, "view.problems", "Вид: панель проблем";
     LspRestart, "lsp.restart", "Языковые серверы: перезапустить";
+    CollabShare, "collab.share", "Совместная работа: поделиться проектом";
+    CollabJoin, "collab.join", "Совместная работа: присоединиться по ссылке…";
+    CollabSession, "collab.session", "Совместная работа: участники и приглашения";
+    CollabCopyInvite, "collab.copy_invite", "Совместная работа: скопировать ссылку для редактирования";
+    CollabCopyReadInvite, "collab.copy_read_invite", "Совместная работа: скопировать ссылку только для чтения";
+    CollabLeave, "collab.leave", "Совместная работа: завершить или покинуть сессию";
     About, "app.about", "О программе";
     AppQuit, "app.quit", "Выход";
 }

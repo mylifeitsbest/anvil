@@ -1,0 +1,21 @@
+[package]
+name = "anvil-collab"
+description = "Совместная работа в Anvil: CRDT-документы (yrs), протокол, TLS-канал до relay"
+version.workspace = true
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+yrs.workspace = true
+rustls.workspace = true
+ring.workspace = true
+postcard.workspace = true
+serde.workspace = true
+ropey.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

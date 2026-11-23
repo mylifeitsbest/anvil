@@ -156,6 +156,18 @@ impl History {
         Some(sel)
     }
 
+    /// Правки, которые сделает [`History::undo`], в порядке применения.
+    pub fn undo_changes(&self) -> Option<Vec<Change>> {
+        let tx = self.nodes[self.current].tx.as_ref()?;
+        Some(tx.changes.iter().rev().map(Change::inverse).collect())
+    }
+
+    /// Правки, которые сделает [`History::redo`].
+    pub fn redo_changes(&self) -> Option<Vec<Change>> {
+        let child = *self.nodes[self.current].children.last()?;
+        Some(self.nodes[child].tx.as_ref()?.changes.clone())
+    }
+
     /// Сколько всего веток (листьев) в дереве — для статистики и тестов.
     pub fn branch_count(&self) -> usize {
         self.nodes.iter().filter(|n| n.children.is_empty()).count()

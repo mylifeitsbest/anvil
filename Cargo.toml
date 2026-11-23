@@ -4,7 +4,7 @@ members = ["crates/*"]
 default-members = ["crates/anvil"]
 
 [workspace.package]
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT"
@@ -16,6 +16,8 @@ anvil-config = { path = "crates/anvil-config" }
 anvil-syntax = { path = "crates/anvil-syntax" }
 anvil-toolchains = { path = "crates/anvil-toolchains" }
 anvil-lsp = { path = "crates/anvil-lsp" }
+anvil-collab = { path = "crates/anvil-collab" }
+anvil-relay = { path = "crates/anvil-relay" }
 
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
@@ -31,6 +33,12 @@ rfd = "0.18"
 serde_ignored = "0.1"
 toml_edit = "0.25"
 ignore = "0.4"
+# совместная работа: CRDT, TLS 1.3 (ring, без C-тулчейна aws-lc), самоподписанные сертификаты relay
+yrs = "0.28"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+rcgen = { version = "0.14", default-features = false, features = ["ring", "crypto"] }
+ring = "0.17"
+postcard = { version = "1", default-features = false, features = ["use-std"] }
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 
 tree-sitter = "0.27"

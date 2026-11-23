@@ -100,6 +100,11 @@ impl AnvilApp {
             p.rect_filled(pill, cr(self.settings.theme.radius * 0.7), c.hover);
             icon(&p, Rect::from_min_size(pos2(pill.left() + 5.0, cy - 6.5), vec2(13.0, 13.0)), Icon::Branch, c.text_muted, 1.2);
             text(&p, pos2(pill.left() + 21.0, cy), Align2::LEFT_CENTER, &b, self.ui_font(11.5), c.text_muted);
+            x = pill.right() + 8.0;
+        }
+        // совместная работа: «В эфире · N» — если не налезает на поиск
+        if self.collab.session.is_some() && x + 120.0 < rect.center().x - (rect.width() * 0.34).clamp(200.0, 420.0) / 2.0 {
+            self.draw_collab_live(ui, &p, x, cy);
         }
 
         // поиск по центру
@@ -147,6 +152,8 @@ impl AnvilApp {
             self.exec(Cmd::SettingsOpen);
         }
         rx -= 34.0;
+        // совместная работа: «Поделиться» или аватары участников
+        rx = self.draw_collab_title(ui, &p, rx, cy);
         let can_run = self.doc().is_some_and(|d| d.path.is_some() && self.registry.for_language(d.lang.id).next().is_some());
         if can_run || self.panel.run.is_some() {
             let running = self.panel.run.is_some();
@@ -201,7 +208,10 @@ impl AnvilApp {
         let style = self.settings.ui.tab_style;
         let radius = self.settings.theme.radius;
 
-        let widths: Vec<f32> = self.docs.iter().map(|d| text_width(ui.ctx(), &d.name, &font) + 58.0).collect();
+        // кто из участников сессии смотрит в этот файл — точки их цветов
+        let viewers: Vec<Vec<Color32>> = self.docs.iter().map(|d| self.collab.viewers(d.id)).collect();
+        let dots_w = |n: usize| if n == 0 { 0.0 } else { 6.0 + n.min(4) as f32 * 5.0 };
+        let widths: Vec<f32> = self.docs.iter().zip(&viewers).map(|(d, v)| text_width(ui.ctx(), &d.name, &font) + 58.0 + dots_w(v.len())).collect();
         let total: f32 = widths.iter().sum();
         let mut offset = 0.0;
         if let Some(a) = self.active {
@@ -251,7 +261,12 @@ impl AnvilApp {
             let cy = tr.center().y;
             let bw = self.file_badge(&p, tr.left() + 12.0, cy, &name);
             let col = if active { c.text } else { mix(c.text_faint, c.text_muted, ht) };
-            text(&p, pos2(tr.left() + 14.0 + bw, cy), Align2::LEFT_CENTER, &name, font.clone(), with_alpha(col, alpha));
+            let nr = text(&p, pos2(tr.left() + 14.0 + bw, cy), Align2::LEFT_CENTER, &name, font.clone(), with_alpha(col, alpha));
+            for (k, vc) in viewers[i].iter().take(4).enumerate() {
+                let ctr = pos2(nr.right() + 8.0 + k as f32 * 5.0, cy);
+                p.circle_filled(ctr, 3.2, with_alpha(*vc, alpha));
+                p.circle_stroke(ctr, 3.2, Stroke::new(1.0, if active { c.tab_active } else { c.tabs }));
+            }
             // крестик или точка «не сохранено»
             let xr = Rect::from_center_size(pos2(tr.right() - 16.0, cy), vec2(18.0, 18.0));
             let xresp = ui.interact(xr.intersect(rect), Id::unique(("tab-x-btn", id)), Sense::click());
@@ -462,6 +477,7 @@ impl AnvilApp {
             right(&p, &pos, c.text_muted, ui.ctx());
             let _ = LineNumbers::On;
         }
+        self.draw_collab_status(ui, &p, rx, rect);
     }
 
     // ------------------------------------------------------------------ уведомления
