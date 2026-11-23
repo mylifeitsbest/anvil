@@ -201,14 +201,80 @@ impl AnvilApp {
             ("Папка паков", Cmd::PacksFolder),
             ("Папка тем", Cmd::ThemesFolder),
         ];
-        let packs = {
-            let mut v = self.registry.packs.clone();
-            v.sort_by_key(|pk| (self.tools.found.get(&pk.id).and_then(|f| f.as_ref()).is_none(), pk.name.to_lowercase()));
-            v
-        };
+        // строки: заголовки разделов, компиляторы, языковые серверы
+        enum Item {
+            Header(&'static str),
+            Row(ToolRow),
+        }
+        struct ToolRow {
+            key: String,
+            id: String,
+            server: bool,
+            name: String,
+            langs: String,
+            found: Option<String>,
+            broken: bool,
+            scanned: bool,
+            version: Option<String>,
+            install: Option<String>,
+            homepage: String,
+        }
+        let mut items = vec![Item::Header("КОМПИЛЯТОРЫ И ИНТЕРПРЕТАТОРЫ")];
+        let mut packs: Vec<ToolRow> = self
+            .registry
+            .packs
+            .iter()
+            .map(|pk| ToolRow {
+                key: format!("pack:{}", pk.id),
+                id: pk.id.clone(),
+                server: false,
+                name: pk.name.clone(),
+                langs: pk.languages.join(", "),
+                found: self.tools.found.get(&pk.id).cloned().flatten().map(|f| f.path.to_string_lossy().to_string()),
+                broken: false,
+                scanned: self.tools.found.contains_key(&pk.id),
+                version: self.tools.versions.get(&pk.id).cloned(),
+                install: pk.install.current().map(str::to_string),
+                homepage: pk.homepage.clone(),
+            })
+            .collect();
+        packs.sort_by_key(|r| (r.found.is_none(), r.name.to_lowercase()));
+        items.extend(packs.into_iter().map(Item::Row));
+        items.push(Item::Header("ЯЗЫКОВЫЕ СЕРВЕРЫ (LSP)"));
+        let mut servers: Vec<ToolRow> = self
+            .lsp
+            .reg
+            .servers
+            .iter()
+            .map(|sv| {
+                let st = self.tools.servers.get(&sv.id);
+                let (found, broken) = match st {
+                    Some(Some((p, true))) => (Some(p.to_string_lossy().to_string()), false),
+                    Some(Some((_, false))) => (None, true),
+                    _ => (None, false),
+                };
+                ToolRow {
+                    key: format!("srv:{}", sv.id),
+                    id: sv.id.clone(),
+                    server: true,
+                    name: sv.name.clone(),
+                    langs: sv.languages.join(", "),
+                    found,
+                    broken,
+                    scanned: st.is_some(),
+                    version: None,
+                    install: sv.install.current().map(str::to_string),
+                    homepage: sv.homepage.clone(),
+                }
+            })
+            .collect();
+        servers.sort_by_key(|r| (r.found.is_none(), r.name.to_lowercase()));
+        items.extend(servers.into_iter().map(Item::Row));
+
         let row_h = 46.0;
-        let actions_h = 2.0 * 30.0 + 16.0;
-        let content_h = actions_h + packs.len() as f32 * row_h + 12.0;
+        let head_h = 30.0;
+        let actions_h = 2.0 * 30.0 + 8.0;
+        let content_h = actions_h + items.iter().map(|i| if matches!(i, Item::Header(_)) { head_h } else { row_h }).sum::<f32>() + 12.0;
         let max_scroll = (content_h - rect.height()).max(0.0);
         if ui.rect_contains_pointer(rect) {
             let d = super::wheel_delta(ui.ctx()).y;
@@ -238,33 +304,55 @@ impl AnvilApp {
             }
         }
         let mut y = top + actions_h;
-        let mut install = None;
+        let mut install: Option<(String, bool)> = None;
         let mut site = None;
-        for pk in &packs {
-            let r = Rect::from_min_size(pos2(rect.left(), y), vec2(rect.width(), row_h));
-            y += row_h;
-            if r.bottom() < rect.top() || r.top() > rect.bottom() {
-                continue;
-            }
-            let found = self.tools.found.get(&pk.id).cloned().flatten();
-            let resp = ui.interact(r.intersect(rect), Id::unique(("pack", &pk.id)), Sense::hover());
-            let ht = self.hover_t(("pack-h", &pk.id), resp.hovered());
+        for item in &items {
+            let (r, row) = match item {
+                Item::Header(t) => {
+                    let r = Rect::from_min_size(pos2(rect.left(), y), vec2(rect.width(), head_h));
+                    y += head_h;
+                    if r.bottom() >= rect.top() && r.top() <= rect.bottom() {
+                        text(&p, pos2(r.left() + 14.0, r.center().y + 3.0), Align2::LEFT_CENTER, t, self.bold_font(10.0), c.text_faint);
+                    }
+                    continue;
+                }
+                Item::Row(row) => {
+                    let r = Rect::from_min_size(pos2(rect.left(), y), vec2(rect.width(), row_h));
+                    y += row_h;
+                    if r.bottom() < rect.top() || r.top() > rect.bottom() {
+                        continue;
+                    }
+                    (r, row)
+                }
+            };
+            let resp = ui.interact(r.intersect(rect), Id::unique(("tool-row", &row.key)), Sense::hover());
+            let ht = self.hover_t(("tool-row-h", &row.key), resp.hovered());
             if ht > 0.01 {
                 p.rect_filled(r, egui::CornerRadius::ZERO, with_alpha(c.hover, ht * 1.3));
             }
-            let dot = match (&found, self.tools.found.contains_key(&pk.id)) {
-                (Some(_), _) => c.ok,
-                (None, true) => c.text_faint,
-                (None, false) => with_alpha(c.text_faint, 0.4),
+            let dot = match (&row.found, row.broken, row.scanned) {
+                (Some(_), _, _) => c.ok,
+                (None, true, _) => c.warn,
+                (None, false, true) => c.text_faint,
+                (None, false, false) => with_alpha(c.text_faint, 0.4),
             };
             p.circle_filled(pos2(r.left() + 16.0, r.top() + 16.0), 3.5, dot);
-            text(&p, pos2(r.left() + 28.0, r.top() + 16.0), Align2::LEFT_CENTER, &pk.name, font.clone(), if found.is_some() { c.text } else { c.text_muted });
-            let sub = match (&found, self.tools.versions.get(&pk.id)) {
+            text(
+                &p,
+                pos2(r.left() + 28.0, r.top() + 16.0),
+                Align2::LEFT_CENTER,
+                &row.name,
+                font.clone(),
+                if row.found.is_some() { c.text } else { c.text_muted },
+            );
+            let sub = match (&row.found, &row.version) {
                 (Some(_), Some(v)) => v.clone(),
-                (Some(f), None) => f.path.to_string_lossy().to_string(),
-                (None, _) => format!("не найден · {}", pk.languages.join(", ")),
+                (Some(f), None) => f.clone(),
+                (None, _) if row.broken => format!("найден, но не установлен до конца · {}", row.langs),
+                (None, _) => format!("не найден · {}", row.langs),
             };
-            let max_w = rect.width() - 40.0 - if found.is_none() { 96.0 } else { 0.0 };
+            let needs_install = row.found.is_none() && row.scanned;
+            let max_w = rect.width() - 40.0 - if needs_install { 96.0 } else { 0.0 };
             let mut sub_s = sub.clone();
             while text_width(ui.ctx(), &sub_s, &small) > max_w && sub_s.chars().count() > 4 {
                 sub_s = sub_s.chars().take(sub_s.chars().count() - 2).collect::<String>();
@@ -272,9 +360,9 @@ impl AnvilApp {
                 sub_s = sub_s.replace("……", "…");
             }
             text(&p, pos2(r.left() + 28.0, r.top() + 33.0), Align2::LEFT_CENTER, &sub_s, small.clone(), c.text_faint);
-            if found.is_none() && self.tools.found.contains_key(&pk.id) {
-                let has_cmd = pk.install.current().is_some();
-                let armed = self.tools.armed.as_ref().is_some_and(|(id, t)| *id == pk.id && self.now - t < 4.0);
+            if needs_install {
+                let has_cmd = row.install.is_some();
+                let armed = self.tools.armed.as_ref().is_some_and(|(id, t)| *id == row.key && self.now - t < 4.0);
                 let label = if !has_cmd {
                     "Сайт"
                 } else if armed {
@@ -284,8 +372,8 @@ impl AnvilApp {
                 };
                 let w = text_width(ui.ctx(), label, &small) + 18.0;
                 let b = Rect::from_min_size(pos2(r.right() - 12.0 - w, r.top() + 11.0), vec2(w, 24.0));
-                let bresp = ui.interact(b.intersect(rect), Id::unique(("install", &pk.id)), Sense::click());
-                let bh = self.hover_t(("install-h", &pk.id), bresp.hovered());
+                let bresp = ui.interact(b.intersect(rect), Id::unique(("install", &row.key)), Sense::click());
+                let bh = self.hover_t(("install-h", &row.key), bresp.hovered());
                 let fill = if armed { c.warn } else { mix(c.accent, mix(c.accent, Color32::WHITE, 0.15), bh) };
                 p.rect_filled(b, cr(self.settings.theme.radius * 0.7), if has_cmd { fill } else { with_alpha(c.hover, 1.5 + bh) });
                 text(&p, b.center(), Align2::CENTER_CENTER, label, small.clone(), if has_cmd { c.on_accent } else { c.text_muted });
@@ -294,27 +382,29 @@ impl AnvilApp {
                 }
                 if bresp.clicked() {
                     if !has_cmd {
-                        site = Some(pk.homepage.clone());
+                        site = Some(row.homepage.clone());
                     } else if armed {
-                        install = Some(pk.id.clone());
+                        install = Some((row.id.clone(), row.server));
                         self.tools.armed = None;
                     } else {
-                        self.tools.armed = Some((pk.id.clone(), self.now));
-                        let cmd = pk.install.current().unwrap_or_default().to_string();
+                        self.tools.armed = Some((row.key.clone(), self.now));
+                        let cmd = row.install.clone().unwrap_or_default();
                         self.toast(format!("Будет выполнено: {cmd}. Нажмите «Точно?» для подтверждения"), ToastKind::Info);
                     }
                 }
-            } else if found.is_some() && resp.hovered() {
+            } else if row.found.is_some() && resp.hovered() {
                 let b = Rect::from_min_size(pos2(r.right() - 34.0, r.top() + 11.0), vec2(24.0, 24.0));
-                let bresp = ui.interact(b, Id::unique(("site", &pk.id)), Sense::click());
+                let bresp = ui.interact(b, Id::unique(("site", &row.key)), Sense::click());
                 icon(&p, b.shrink(4.0), Icon::Link, if bresp.hovered() { c.text } else { c.text_faint }, 1.2);
                 if bresp.clicked() {
-                    site = Some(pk.homepage.clone());
+                    site = Some(row.homepage.clone());
                 }
             }
         }
-        if let Some(id) = install {
-            self.install_pack(&id);
+        match install {
+            Some((id, false)) => self.install_pack(&id),
+            Some((id, true)) => self.install_server(&id),
+            None => {}
         }
         if let Some(url) = site {
             self.open_url(&url);

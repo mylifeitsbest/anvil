@@ -87,6 +87,16 @@ pub enum Cmd {
     ToggleRainbowIndent,
     ToggleBrackets,
     RefreshTree,
+    LspComplete,
+    LspHover,
+    GotoDefinition,
+    FindReferences,
+    RenameSymbol,
+    FormatDocument,
+    NextProblem,
+    PrevProblem,
+    LspRestart,
+    ViewProblems,
     AppQuit,
     About,
 }
@@ -182,6 +192,16 @@ cmds! {
     ToggleRainbowIndent, "toggle.rainbow_indent", "Редактор: радужные отступы вкл/выкл";
     ToggleBrackets, "toggle.brackets", "Редактор: раскраска скобок вкл/выкл";
     RefreshTree, "tree.refresh", "Проводник: обновить";
+    LspComplete, "lsp.complete", "Код: показать подсказки";
+    LspHover, "lsp.hover", "Код: описание символа";
+    GotoDefinition, "lsp.definition", "Код: перейти к определению";
+    FindReferences, "lsp.references", "Код: найти все ссылки";
+    RenameSymbol, "lsp.rename", "Код: переименовать символ";
+    FormatDocument, "lsp.format", "Код: отформатировать документ";
+    NextProblem, "lsp.next_problem", "Проблемы: следующая";
+    PrevProblem, "lsp.prev_problem", "Проблемы: предыдущая";
+    ViewProblems, "view.problems", "Вид: панель проблем";
+    LspRestart, "lsp.restart", "Языковые серверы: перезапустить";
     About, "app.about", "О программе";
     AppQuit, "app.quit", "Выход";
 }
@@ -357,6 +377,15 @@ const VSCODE: &[(&str, Cmd)] = &[
     ("ctrl+f5", RunFile),
     ("shift+f5", RunStop),
     ("ctrl+,", SettingsOpen),
+    ("ctrl+space", LspComplete),
+    ("ctrl+k ctrl+i", LspHover),
+    ("f12", GotoDefinition),
+    ("shift+f12", FindReferences),
+    ("f2", RenameSymbol),
+    ("shift+alt+f", FormatDocument),
+    ("f8", NextProblem),
+    ("shift+f8", PrevProblem),
+    ("ctrl+shift+m", ViewProblems),
     ("ctrl+q", AppQuit),
 ];
 
@@ -376,6 +405,13 @@ const JETBRAINS: &[(&str, Cmd)] = &[
     ("alt+1", ViewExplorer),
     ("alt+4", ViewPanel),
     ("ctrl+alt+s", SettingsOpen),
+    ("ctrl+b", GotoDefinition),
+    ("alt+f7", FindReferences),
+    ("shift+f6", RenameSymbol),
+    ("ctrl+alt+l", FormatDocument),
+    ("ctrl+q", LspHover),
+    ("f2", NextProblem),
+    ("shift+f2", PrevProblem),
 ];
 
 const SUBLIME: &[(&str, Cmd)] = &[

@@ -189,3 +189,23 @@ save_before_run = true
 [toolchains.overrides]
 # rust = { run = "cargo run --release" }
 # python = { run = "py -3.13 {file}" }
+
+# Языковые серверы (LSP): автодополнение, подсказки, ошибки, переход к определению,
+# переименование, форматирование. Сервер для языка ищется сам (см. вкладку «Тулчейны»).
+[lsp]
+enabled = true
+completion = true
+# Подсказки во время ввода (false — только по Ctrl+Space)
+completion_auto = true
+hover = true
+hover_delay_ms = 450
+# Волнистое подчёркивание ошибок
+squiggles = true
+# Текст ошибки в конце строки, как Error Lens: off · errors · all
+inline_diagnostics = "errors"
+format_on_save = false
+
+# Свой сервер или аргументы для языка
+[lsp.servers]
+# python = { command = "pylsp" }
+# rust = { args = [], enabled = true }

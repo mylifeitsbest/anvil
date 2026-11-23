@@ -55,6 +55,8 @@ pub struct Toast {
 pub enum ToolMsg {
     Found(String, Option<Found>),
     Version(String, String),
+    /// Языковой сервер: путь и «действительно работает».
+    Server(String, Option<(PathBuf, bool)>),
     Done,
 }
 
@@ -65,6 +67,7 @@ pub struct ToolsState {
     pub scanning: bool,
     pub scanned: bool,
     pub rx: Option<Receiver<ToolMsg>>,
+    pub servers: HashMap<String, Option<(PathBuf, bool)>>,
     /// Кнопка «Установить», нажатая один раз (ждём подтверждения).
     pub armed: Option<(String, f64)>,
 }
@@ -83,9 +86,17 @@ pub struct PanelLine {
     pub kind: LineKind,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum PanelTab {
+    #[default]
+    Output,
+    Problems,
+}
+
 #[derive(Default)]
 pub struct PanelState {
     pub open: bool,
+    pub tab: PanelTab,
     pub lines: Vec<PanelLine>,
     pub title: String,
     pub run: Option<RunHandle>,
@@ -145,7 +156,7 @@ pub struct AnvilApp {
     fonts_key: String,
     pub(crate) font_report: FontReport,
     pub(crate) session: Session,
-    args: Args,
+    pub(crate) args: Args,
     pub(crate) now: f64,
     pub(crate) dt: f32,
     pub(crate) frame_no: u64,
@@ -167,6 +178,10 @@ pub struct AnvilApp {
     toast_seq: u64,
     pub(crate) window_focused: bool,
     pub(crate) ctx: egui::Context,
+    pub(crate) lsp: crate::lsp::Lsp,
+    pub(crate) geom: Option<crate::lsp::EditorGeom>,
+    pub(crate) hover_rect: Option<Rect>,
+    pub(crate) problems_scroll: f32,
 }
 
 fn opener(path: &Path) {
@@ -255,6 +270,7 @@ impl AnvilApp {
         };
 
         let session = Session::load(&paths.state);
+        let lsp_reg = anvil_lsp::ServerRegistry::load(Some(&paths.packs));
         let mut app = Self {
             settings: s.clone(),
             theme_reg,
@@ -307,7 +323,12 @@ impl AnvilApp {
             paths,
             window_focused: true,
             ctx: ctx.clone(),
+            lsp: crate::lsp::Lsp::default(),
+            geom: None,
+            hover_rect: None,
+            problems_scroll: 0.0,
         };
+        app.lsp.reg = lsp_reg;
         for w in loaded.warnings.iter().chain(&theme_warn).chain(&key_warn).chain(&app.theme_reg.warnings.clone()).chain(&app.registry.warnings.clone()) {
             app.toast(w.clone(), ToastKind::Warn);
         }
@@ -419,6 +440,7 @@ impl AnvilApp {
                 self.docs.push(d);
                 let i = self.docs.len() - 1;
                 self.activate(i);
+                self.lsp_attach(i);
                 self.ws.reveal(&canon, self.now);
                 self.save_session();
                 Some(i)
@@ -458,12 +480,28 @@ impl AnvilApp {
             }
             let Some(p) = dlg.save_file() else { return false };
             let s = self.settings.clone();
+            let mut id = None;
             if let Some(d) = self.docs.get_mut(i) {
                 d.set_path(&p, &s);
+                id = Some(d.id);
+            }
+            if let Some(id) = id {
+                self.lsp_detach(id);
+                self.lsp_attach(i);
             }
         }
+        if self.settings.lsp.format_on_save && self.active == Some(i) && self.lsp_format(true) {
+            // сохранение произойдёт после ответа сервера (или через 2,5 с)
+            return true;
+        }
+        self.save_doc_now(i)
+    }
+
+    /// Записать файл на диск (без форматирования).
+    pub fn save_doc_now(&mut self, i: usize) -> bool {
         let s = self.settings.clone();
         let Some(d) = self.docs.get_mut(i) else { return false };
+        let doc_id = d.id;
         match d.save(&s) {
             Ok(()) => {
                 let is_settings = d.path.as_deref() == Some(self.paths.settings.as_path())
@@ -471,6 +509,7 @@ impl AnvilApp {
                 let in_themes = d.path.as_ref().is_some_and(|p| p.starts_with(&self.paths.themes) || p.starts_with(&self.paths.packs));
                 let name = d.name.clone();
                 self.status(format!("Сохранено: {name}"));
+                self.lsp_did_save(doc_id);
                 if is_settings || in_themes {
                     self.reload_settings();
                 }
@@ -496,6 +535,7 @@ impl AnvilApp {
             }
         }
         let d = self.docs.remove(i);
+        self.lsp_detach(d.id);
         if let Some(p) = d.path {
             self.closed.push(p);
         }
@@ -557,6 +597,8 @@ impl AnvilApp {
             }
         }
         self.registry = Registry::load(Some(&self.paths.packs));
+        let lsp_was = self.settings.lsp.enabled;
+        let lsp_servers_changed = s.lsp.servers != self.settings.lsp.servers;
         if (s.window.opacity < 0.999) != (self.settings.window.opacity < 0.999) || s.window.custom_titlebar != self.settings.window.custom_titlebar {
             self.toast("Прозрачность окна и рамка применятся после перезапуска", ToastKind::Info);
         }
@@ -573,6 +615,11 @@ impl AnvilApp {
             self.ws.reindex(self.wake.clone());
         }
         self.settings = s;
+        if !self.settings.lsp.enabled && lsp_was {
+            self.lsp_shutdown_all();
+        } else if self.settings.lsp.enabled && (!lsp_was || lsp_servers_changed) {
+            self.lsp_restart();
+        }
     }
 
     fn ctx(&self) -> egui::Context {
@@ -682,6 +729,7 @@ impl AnvilApp {
             return;
         }
         let packs = self.registry.packs.clone();
+        let servers = self.lsp.reg.servers.clone();
         let (tx, rx) = mpsc::channel();
         let wake = self.wake.clone();
         self.tools.scanning = true;
@@ -694,6 +742,14 @@ impl AnvilApp {
                     found.push((p.clone(), ff.clone()));
                 }
                 let _ = tx.send(ToolMsg::Found(p.id.clone(), f));
+            }
+            wake();
+            for s in &servers {
+                let r = anvil_lsp::servers::locate(s).map(|exe| {
+                    let ok = anvil_lsp::servers::probe(s, &exe);
+                    (exe, ok)
+                });
+                let _ = tx.send(ToolMsg::Server(s.id.clone(), r));
             }
             wake();
             for (p, f) in found {
@@ -712,6 +768,7 @@ impl AnvilApp {
             r.kill();
         }
         self.panel.open = true;
+        self.panel.tab = PanelTab::Output;
         self.panel.lines.clear();
         self.panel.exit = None;
         self.panel.scroll = 0.0;
@@ -761,6 +818,17 @@ impl AnvilApp {
         }
     }
 
+    pub fn install_server(&mut self, id: &str) {
+        let Some(sv) = self.lsp.reg.get(id).cloned() else { return };
+        match sv.install.current() {
+            Some(cmd) => {
+                let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")).map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
+                self.start_plan(Plan::shell(&format!("Установка: {}", sv.name), cmd, &home), true);
+            }
+            None => opener(Path::new(&sv.homepage)),
+        }
+    }
+
     pub fn open_url(&self, url: &str) {
         opener(Path::new(url));
     }
@@ -791,6 +859,9 @@ impl AnvilApp {
                     ToolMsg::Version(id, v) => {
                         self.tools.versions.insert(id, v);
                     }
+                    ToolMsg::Server(id, r) => {
+                        self.tools.servers.insert(id, r);
+                    }
                     ToolMsg::Done => done = true,
                 }
             }
@@ -798,6 +869,22 @@ impl AnvilApp {
                 self.tools.scanning = false;
                 self.tools.scanned = true;
                 self.tools.rx = None;
+                // после установки сервера — подключить открытые файлы, которые остались без него
+                let failed: Vec<String> =
+                    self.lsp.servers.iter().filter(|(_, s)| matches!(s.status, crate::lsp::Status::Failed(_))).map(|(k, _)| k.clone()).collect();
+                let orphan = self.docs.iter().enumerate().filter(|(_, d)| !self.lsp.docs.contains_key(&d.id)).count();
+                if !failed.is_empty() || orphan > 0 {
+                    for k in failed {
+                        self.lsp.servers.remove(&k);
+                        let ids: Vec<u64> = self.lsp.docs.iter().filter(|(_, d)| d.server == k).map(|(id, _)| *id).collect();
+                        for id in ids {
+                            self.lsp.docs.remove(&id);
+                        }
+                    }
+                    for i in 0..self.docs.len() {
+                        self.lsp_attach(i);
+                    }
+                }
             }
         }
         if let Some(run) = &self.panel.run {
@@ -1206,6 +1293,22 @@ impl AnvilApp {
                 );
                 self.toast(msg, ToastKind::Info);
             }
+            Cmd::LspComplete => self.lsp_complete(),
+            Cmd::LspHover => self.lsp_hover_at_cursor(),
+            Cmd::GotoDefinition => self.lsp_goto_definition(),
+            Cmd::FindReferences => self.lsp_references(),
+            Cmd::RenameSymbol => self.lsp_start_rename(),
+            Cmd::FormatDocument => {
+                self.lsp_format(false);
+            }
+            Cmd::NextProblem => self.lsp_next_problem(true),
+            Cmd::PrevProblem => self.lsp_next_problem(false),
+            Cmd::LspRestart => self.lsp_restart(),
+            Cmd::ViewProblems => {
+                let showing = self.panel.open && self.panel.tab == PanelTab::Problems;
+                self.panel.open = !showing;
+                self.panel.tab = PanelTab::Problems;
+            }
             Cmd::AppQuit => self.ctx().send_viewport_cmd(egui::ViewportCommand::Close),
         }
     }
@@ -1244,6 +1347,7 @@ impl AnvilApp {
             self.rescan_tools();
         }
         self.poll_background();
+        self.lsp_tick();
         let theme_moving = self.theme.tick(self.now);
         self.colors = Colors::new(&self.theme.current, &self.settings);
 
@@ -1305,6 +1409,7 @@ impl AnvilApp {
         if status_h > 0.0 {
             self.draw_statusbar(ui, status_rect);
         }
+        self.draw_lsp_popups(ui);
         self.draw_find(ui, editor_area, &rest);
         self.draw_palette(ui, full, &rest);
         self.draw_toasts(ui, Rect::from_min_max(full.min, pos2(full.max.x, status_rect.min.y)));
@@ -1336,13 +1441,30 @@ impl AnvilApp {
         self.toasts.retain(|t| (self.now - t.born) < t.ttl as f64 + 0.5);
 
         // демонстрационные команды и снимок экрана
-        if self.frame_no == 4 && !self.args.run.is_empty() {
+        if self.frame_no == 3
+            && let (Some((l, col)), Some(d)) = (self.args.goto, self.doc_mut())
+        {
+            let rope = d.ed.rope();
+            let line = l.saturating_sub(1).min(rope.len_lines().saturating_sub(1));
+            let pos = (rope.line_to_char(line) + col.saturating_sub(1)).min(anvil_core::text::line_end(rope, line));
+            d.ed.set_cursor(pos);
+            d.view.reveal = true;
+            d.view.center = true;
+        }
+        if self.frame_no == self.args.run_at && !self.args.run.is_empty() {
             for id in self.args.run.clone() {
                 match crate::commands::by_id(&id) {
                     Some(c) => self.exec(c),
                     None => self.toast(format!("--run: неизвестная команда {id}"), ToastKind::Warn),
                 }
             }
+        }
+        let script: Vec<String> = self.args.script.iter().filter(|(n, _)| *n == self.frame_no).map(|(_, a)| a.clone()).collect();
+        for action in script {
+            self.script_action(&action);
+        }
+        if self.args.script.iter().any(|(n, _)| *n >= self.frame_no) {
+            ctx.request_repaint();
         }
         if let Some(path) = self.args.screenshot.clone() {
             if self.frame_no == self.args.frames {
@@ -1354,6 +1476,68 @@ impl AnvilApp {
             if self.frame_no <= self.args.frames + 5 {
                 ctx.request_repaint();
             }
+        }
+    }
+
+    /// Действие сценария `--script`.
+    fn script_action(&mut self, action: &str) {
+        let (verb, rest) = action.split_once(' ').unwrap_or((action, ""));
+        match verb {
+            "goto" => {
+                let mut it = rest.split_whitespace().filter_map(|x| x.parse::<usize>().ok());
+                let (l, col) = (it.next().unwrap_or(1), it.next().unwrap_or(1));
+                if let Some(d) = self.doc_mut() {
+                    let rope = d.ed.rope();
+                    let line = l.saturating_sub(1).min(rope.len_lines().saturating_sub(1));
+                    let pos = (rope.line_to_char(line) + col.saturating_sub(1)).min(anvil_core::text::line_end(rope, line));
+                    d.ed.set_cursor(pos);
+                    d.view.reveal = true;
+                }
+            }
+            "type" => {
+                // в сценарии «\n» записывается двумя символами
+                let text = rest.replace("\\n", "\n");
+                let doc_id = self.doc().map(|d| d.id);
+                if let (Some(d), Some(id)) = (self.doc_mut(), doc_id) {
+                    d.ed.insert_text(&text);
+                    d.view.reveal = true;
+                    let last = text.chars().last();
+                    self.after_typing(id, last, false, false);
+                }
+            }
+            "run" => match crate::commands::by_id(rest.trim()) {
+                Some(c) => self.exec(c),
+                None => self.toast(format!("--script: неизвестная команда {rest}"), ToastKind::Warn),
+            },
+            "shot" => {
+                let path = PathBuf::from(rest.trim());
+                self.ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::ScreenshotCallback::new(move |img| {
+                    let _ = write_bmp(&path, &img);
+                })));
+            }
+            "input" => {
+                if let Some(p) = self.palette.as_mut() {
+                    p.input.set(rest);
+                    p.previewed = None;
+                }
+                self.refresh_palette();
+            }
+            "enter" => {
+                let a = self.palette.as_ref().and_then(|p| p.items.get(p.sel).map(|i| i.action.clone()));
+                if let Some(a) = a {
+                    self.run_pal_action(a);
+                }
+            }
+            "esc" => {
+                self.lsp.hover = None;
+                self.lsp.completion = None;
+                self.close_palette(false);
+            }
+            "quit" => {
+                self.lsp_shutdown_all();
+                std::process::exit(0);
+            }
+            other => self.toast(format!("--script: неизвестное действие {other}"), ToastKind::Warn),
         }
     }
 
@@ -1419,6 +1603,7 @@ impl eframe::App for AnvilApp {
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         self.save_session();
+        self.lsp_shutdown_all();
         if let Some(r) = &self.panel.run {
             r.kill();
         }

@@ -20,6 +20,8 @@ pub enum PalMode {
     Accent { original: Option<Rgba> },
     GotoLine,
     Pick(Pick),
+    Rename { doc: u64, at: usize, old: String },
+    Locations { title: String },
 }
 
 impl PalMode {
@@ -31,6 +33,8 @@ impl PalMode {
             PalMode::Accent { .. } => 3,
             PalMode::GotoLine => 4,
             PalMode::Pick(_) => 5,
+            PalMode::Rename { .. } => 6,
+            PalMode::Locations { .. } => 7,
         }
     }
 }
@@ -44,6 +48,8 @@ pub enum PalAction {
     Set(Vec<&'static str>, Value),
     Goto(usize),
     ImportTheme(PathBuf),
+    Location(PathBuf, anvil_lsp::lsp_types::Position, anvil_lsp::Enc),
+    Rename(u64, usize),
     None,
 }
 
@@ -67,11 +73,13 @@ pub struct Palette {
     pub opened: f64,
     pub closing: Option<f64>,
     pub previewed: Option<usize>,
+    /// Готовый список (ссылки, определения) — фильтруется вводом.
+    pub fixed: Vec<PalItem>,
 }
 
 impl Palette {
     pub fn new(mode: PalMode, now: f64) -> Self {
-        Self { mode, input: LineInput::default(), items: Vec::new(), sel: 0, first: 0, opened: now, closing: None, previewed: None }
+        Self { mode, input: LineInput::default(), items: Vec::new(), sel: 0, first: 0, opened: now, closing: None, previewed: None, fixed: Vec::new() }
     }
 
     pub fn mode_kind(&self) -> u8 {
@@ -295,6 +303,26 @@ impl AnvilApp {
                     items.push((0, item(format!("Введите номер строки (1–{total})"), String::new(), String::new(), PalAction::None)));
                 }
             }
+            PalMode::Rename { doc, at, old } => {
+                let new = q.trim();
+                let label = if new.is_empty() || new == old {
+                    format!("Введите новое имя для «{old}»")
+                } else {
+                    format!("Переименовать «{old}» → «{new}»")
+                };
+                let action = if new.is_empty() || new == old { PalAction::None } else { PalAction::Rename(*doc, *at) };
+                items.push((0, item(label, "во всех файлах проекта".into(), "Enter".into(), action)));
+            }
+            PalMode::Locations { .. } => {
+                let fixed = self.palette.as_ref().map(|p| p.fixed.clone()).unwrap_or_default();
+                for (i, it) in fixed.into_iter().enumerate() {
+                    let hay = format!("{} {}", it.label, it.detail);
+                    if let Some((score, _)) = fuzzy(&q, &hay) {
+                        let hl = fuzzy(&q, &it.label).map(|x| x.1).unwrap_or_default();
+                        items.push((score * 1000 - i as i32, PalItem { hl, ..it }));
+                    }
+                }
+            }
             PalMode::Pick(Pick::ImportVscodeTheme) => {
                 let themes = vscode_settings::find_themes();
                 if themes.is_empty() {
@@ -326,7 +354,8 @@ impl AnvilApp {
                 }
             }
         }
-        let keep_order = matches!(mode, PalMode::Themes { .. } | PalMode::Accent { .. } | PalMode::Pick(_)) && q.is_empty();
+        let keep_order =
+            (matches!(mode, PalMode::Themes { .. } | PalMode::Accent { .. } | PalMode::Pick(_)) && q.is_empty()) || matches!(mode, PalMode::Rename { .. });
         if !keep_order {
             items.sort_by_key(|x| std::cmp::Reverse(x.0));
         }
@@ -381,7 +410,7 @@ impl AnvilApp {
         }
     }
 
-    fn run_pal_action(&mut self, a: PalAction) {
+    pub(crate) fn run_pal_action(&mut self, a: PalAction) {
         self.close_palette(!matches!(a, PalAction::None));
         match a {
             PalAction::Cmd(c) => self.exec(c),
@@ -402,6 +431,11 @@ impl AnvilApp {
                 }
             }
             PalAction::ImportTheme(p) => self.import_theme_file(&p),
+            PalAction::Location(p, pos, enc) => self.goto_location(&p, pos, enc),
+            PalAction::Rename(doc, at) => {
+                let name = self.palette.as_ref().map(|p| p.input.text.trim().to_string()).unwrap_or_default();
+                self.lsp_rename(doc, at, &name);
+            }
             PalAction::None => {}
         }
     }
@@ -501,6 +535,8 @@ impl AnvilApp {
             PalMode::Accent { .. } => (Icon::Search, Some("Акцент"), "Цвет или #hex"),
             PalMode::GotoLine => (Icon::Search, Some("Строка"), "Номер строки"),
             PalMode::Pick(pk) => (Icon::Search, Some(pick_options(*pk).1), "Выберите вариант"),
+            PalMode::Rename { .. } => (Icon::Search, Some("Переименовать"), "Новое имя"),
+            PalMode::Locations { title } => (Icon::Search, Some(title.as_str()), "Фильтр по файлу или тексту"),
         };
         icon(&pp, Rect::from_min_size(pos2(input_r.left() + 16.0, input_r.center().y - 8.0), vec2(16.0, 16.0)), ic, with_alpha(c.text_faint, k), 1.4);
         let mut tx = input_r.left() + 42.0;

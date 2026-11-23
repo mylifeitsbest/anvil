@@ -1,0 +1,305 @@
+# Встроенные языковые серверы (LSP) Anvil.
+#
+# Как и паки тулчейнов, это просто данные: свой сервер добавляется TOML-файлом
+# с секцией [[server]] в папке packs/ настроек. Сервер запускается, только
+# когда открыт файл его языка.
+#
+#   command  — исполняемые файлы по порядку предпочтения (берётся первый найденный)
+#   args     — аргументы запуска
+#   probe    — аргументы проверки «установлен ли на самом деле» (пусто — без проверки)
+#   roots    — файлы-признаки корня проекта
+#   priority — чем больше, тем раньше выбирается сервер для языка
+
+[[server]]
+id = "rust-analyzer"
+name = "rust-analyzer"
+languages = ["rust"]
+command = ["rust-analyzer"]
+probe = ["--version"]
+roots = ["Cargo.toml"]
+homepage = "https://rust-analyzer.github.io"
+install = { windows = "rustup component add rust-analyzer", macos = "rustup component add rust-analyzer", linux = "rustup component add rust-analyzer" }
+
+[[server]]
+id = "pyright"
+name = "Pyright"
+languages = ["python"]
+command = ["basedpyright-langserver", "pyright-langserver"]
+args = ["--stdio"]
+roots = ["pyproject.toml", "setup.py", "requirements.txt"]
+priority = 10
+homepage = "https://github.com/microsoft/pyright"
+install = { windows = "npm install -g pyright", macos = "npm install -g pyright", linux = "npm install -g pyright" }
+
+[[server]]
+id = "pylsp"
+name = "Python LSP Server"
+languages = ["python"]
+command = ["pylsp"]
+probe = ["--version"]
+roots = ["pyproject.toml", "setup.py"]
+priority = 5
+homepage = "https://github.com/python-lsp/python-lsp-server"
+install = { windows = "py -m pip install python-lsp-server", macos = "pip3 install python-lsp-server", linux = "pip3 install python-lsp-server" }
+
+[[server]]
+id = "typescript-language-server"
+name = "TypeScript / JavaScript"
+languages = ["typescript", "tsx", "javascript"]
+command = ["typescript-language-server"]
+args = ["--stdio"]
+probe = ["--version"]
+roots = ["tsconfig.json", "jsconfig.json", "package.json"]
+homepage = "https://github.com/typescript-language-server/typescript-language-server"
+install = { windows = "npm install -g typescript typescript-language-server", macos = "npm install -g typescript typescript-language-server", linux = "npm install -g typescript typescript-language-server" }
+
+[[server]]
+id = "clangd"
+name = "clangd (C / C++)"
+languages = ["c", "cpp"]
+command = ["clangd"]
+probe = ["--version"]
+roots = ["compile_commands.json", "CMakeLists.txt", ".clangd"]
+homepage = "https://clangd.llvm.org"
+install = { windows = "winget install -e --id LLVM.LLVM", macos = "brew install llvm", linux = "sudo apt install -y clangd" }
+
+[[server]]
+id = "gopls"
+name = "gopls (Go)"
+languages = ["go"]
+command = ["gopls"]
+probe = ["version"]
+roots = ["go.mod", "go.work"]
+homepage = "https://pkg.go.dev/golang.org/x/tools/gopls"
+install = { windows = "go install golang.org/x/tools/gopls@latest", macos = "go install golang.org/x/tools/gopls@latest", linux = "go install golang.org/x/tools/gopls@latest" }
+
+[[server]]
+id = "zls"
+name = "ZLS (Zig)"
+languages = ["zig"]
+command = ["zls"]
+probe = ["--version"]
+roots = ["build.zig"]
+homepage = "https://github.com/zigtools/zls"
+install = { windows = "winget install -e --id zigtools.zls", macos = "brew install zls", linux = "sudo snap install zls --classic" }
+
+[[server]]
+id = "lua-language-server"
+name = "Lua Language Server"
+languages = ["lua"]
+command = ["lua-language-server"]
+probe = ["--version"]
+roots = [".luarc.json"]
+homepage = "https://luals.github.io"
+install = { windows = "winget install -e --id LuaLS.lua-language-server", macos = "brew install lua-language-server", linux = "sudo snap install lua-language-server --classic" }
+
+[[server]]
+id = "taplo"
+name = "Taplo (TOML)"
+languages = ["toml"]
+command = ["taplo"]
+args = ["lsp", "stdio"]
+probe = ["--version"]
+homepage = "https://taplo.tamasfe.dev"
+install = { windows = "winget install -e --id tamasfe.taplo", macos = "brew install taplo", linux = "cargo install taplo-cli --locked --features lsp" }
+
+[[server]]
+id = "marksman"
+name = "Marksman (Markdown)"
+languages = ["markdown"]
+command = ["marksman"]
+args = ["server"]
+probe = ["--version"]
+homepage = "https://github.com/artempyanykh/marksman"
+install = { windows = "winget install -e --id Artempyanykh.Marksman", macos = "brew install marksman", linux = "sudo snap install marksman" }
+
+[[server]]
+id = "vscode-json"
+name = "JSON (vscode-langservers)"
+languages = ["json"]
+command = ["vscode-json-language-server"]
+args = ["--stdio"]
+homepage = "https://github.com/hrsh7th/vscode-langservers-extracted"
+install = { windows = "npm install -g vscode-langservers-extracted", macos = "npm install -g vscode-langservers-extracted", linux = "npm install -g vscode-langservers-extracted" }
+
+[[server]]
+id = "vscode-css"
+name = "CSS (vscode-langservers)"
+languages = ["css"]
+command = ["vscode-css-language-server"]
+args = ["--stdio"]
+homepage = "https://github.com/hrsh7th/vscode-langservers-extracted"
+install = { windows = "npm install -g vscode-langservers-extracted", macos = "npm install -g vscode-langservers-extracted", linux = "npm install -g vscode-langservers-extracted" }
+
+[[server]]
+id = "vscode-html"
+name = "HTML (vscode-langservers)"
+languages = ["html"]
+command = ["vscode-html-language-server"]
+args = ["--stdio"]
+homepage = "https://github.com/hrsh7th/vscode-langservers-extracted"
+install = { windows = "npm install -g vscode-langservers-extracted", macos = "npm install -g vscode-langservers-extracted", linux = "npm install -g vscode-langservers-extracted" }
+
+[[server]]
+id = "yaml-language-server"
+name = "YAML"
+languages = ["yaml"]
+command = ["yaml-language-server"]
+args = ["--stdio"]
+homepage = "https://github.com/redhat-developer/yaml-language-server"
+install = { windows = "npm install -g yaml-language-server", macos = "npm install -g yaml-language-server", linux = "npm install -g yaml-language-server" }
+
+[[server]]
+id = "bash-language-server"
+name = "Bash"
+languages = ["shell"]
+command = ["bash-language-server"]
+args = ["start"]
+homepage = "https://github.com/bash-lsp/bash-language-server"
+install = { windows = "npm install -g bash-language-server", macos = "npm install -g bash-language-server", linux = "npm install -g bash-language-server" }
+
+[[server]]
+id = "csharp-ls"
+name = "csharp-ls (C#)"
+languages = ["csharp"]
+command = ["csharp-ls"]
+probe = ["--version"]
+roots = ["*.sln", "*.csproj"]
+homepage = "https://github.com/razzmatazz/csharp-language-server"
+install = { windows = "dotnet tool install --global csharp-ls", macos = "dotnet tool install --global csharp-ls", linux = "dotnet tool install --global csharp-ls" }
+
+[[server]]
+id = "fsautocomplete"
+name = "FsAutoComplete (F#)"
+languages = ["fsharp"]
+command = ["fsautocomplete"]
+homepage = "https://github.com/ionide/FsAutoComplete"
+install = { windows = "dotnet tool install --global fsautocomplete", macos = "dotnet tool install --global fsautocomplete", linux = "dotnet tool install --global fsautocomplete" }
+
+[[server]]
+id = "jdtls"
+name = "Eclipse JDT LS (Java)"
+languages = ["java"]
+command = ["jdtls"]
+roots = ["pom.xml", "build.gradle", "build.gradle.kts"]
+homepage = "https://github.com/eclipse-jdtls/eclipse.jdt.ls"
+install = { macos = "brew install jdtls" }
+
+[[server]]
+id = "kotlin-language-server"
+name = "Kotlin Language Server"
+languages = ["kotlin"]
+command = ["kotlin-language-server"]
+roots = ["build.gradle.kts", "settings.gradle.kts"]
+homepage = "https://github.com/fwcd/kotlin-language-server"
+install = { macos = "brew install kotlin-language-server" }
+
+[[server]]
+id = "sourcekit-lsp"
+name = "SourceKit-LSP (Swift)"
+languages = ["swift"]
+command = ["sourcekit-lsp"]
+roots = ["Package.swift"]
+homepage = "https://github.com/swiftlang/sourcekit-lsp"
+install = { windows = "winget install -e --id Swift.Toolchain", macos = "xcode-select --install" }
+
+[[server]]
+id = "dart"
+name = "Dart Analysis Server"
+languages = ["dart"]
+command = ["dart"]
+args = ["language-server", "--protocol=lsp"]
+probe = ["--version"]
+roots = ["pubspec.yaml"]
+homepage = "https://dart.dev/tools/analysis"
+install = { windows = "winget install -e --id Google.DartSDK", macos = "brew install dart-sdk", linux = "sudo apt install -y dart" }
+
+[[server]]
+id = "ruby-lsp"
+name = "Ruby LSP"
+languages = ["ruby"]
+command = ["ruby-lsp"]
+roots = ["Gemfile"]
+homepage = "https://shopify.github.io/ruby-lsp/"
+install = { windows = "gem install ruby-lsp", macos = "gem install ruby-lsp", linux = "gem install ruby-lsp" }
+
+[[server]]
+id = "intelephense"
+name = "Intelephense (PHP)"
+languages = ["php"]
+command = ["intelephense"]
+args = ["--stdio"]
+roots = ["composer.json"]
+homepage = "https://intelephense.com"
+install = { windows = "npm install -g intelephense", macos = "npm install -g intelephense", linux = "npm install -g intelephense" }
+
+[[server]]
+id = "hls"
+name = "Haskell Language Server"
+languages = ["haskell"]
+command = ["haskell-language-server-wrapper", "haskell-language-server"]
+args = ["--lsp"]
+roots = ["stack.yaml", "cabal.project", "*.cabal"]
+homepage = "https://haskell-language-server.readthedocs.io"
+install = { windows = "ghcup install hls", macos = "ghcup install hls", linux = "ghcup install hls" }
+
+[[server]]
+id = "ocamllsp"
+name = "OCaml LSP"
+languages = ["ocaml"]
+command = ["ocamllsp"]
+roots = ["dune-project"]
+homepage = "https://github.com/ocaml/ocaml-lsp"
+install = { windows = "opam install ocaml-lsp-server", macos = "opam install ocaml-lsp-server", linux = "opam install ocaml-lsp-server" }
+
+[[server]]
+id = "nimlangserver"
+name = "Nim Language Server"
+languages = ["nim"]
+command = ["nimlangserver"]
+homepage = "https://github.com/nim-lang/langserver"
+install = { windows = "nimble install nimlangserver", macos = "nimble install nimlangserver", linux = "nimble install nimlangserver" }
+
+[[server]]
+id = "metals"
+name = "Metals (Scala)"
+languages = ["scala"]
+command = ["metals"]
+roots = ["build.sbt", "build.sc"]
+homepage = "https://scalameta.org/metals/"
+install = { windows = "cs install metals", macos = "cs install metals", linux = "cs install metals" }
+
+[[server]]
+id = "fortls"
+name = "fortls (Fortran)"
+languages = ["fortran"]
+command = ["fortls"]
+probe = ["--version"]
+homepage = "https://fortls.fortran-lang.org"
+install = { windows = "py -m pip install fortls", macos = "pip3 install fortls", linux = "pip3 install fortls" }
+
+[[server]]
+id = "r-languageserver"
+name = "R languageserver"
+languages = ["r"]
+command = ["R"]
+args = ["--slave", "-e", "languageserver::run()"]
+homepage = "https://github.com/REditorSupport/languageserver"
+install = { windows = "Rscript -e \"install.packages('languageserver', repos='https://cloud.r-project.org')\"", macos = "Rscript -e \"install.packages('languageserver', repos='https://cloud.r-project.org')\"", linux = "Rscript -e \"install.packages('languageserver', repos='https://cloud.r-project.org')\"" }
+
+[[server]]
+id = "cmake-language-server"
+name = "CMake Language Server"
+languages = ["cmake"]
+command = ["cmake-language-server"]
+homepage = "https://github.com/regen100/cmake-language-server"
+install = { windows = "py -m pip install cmake-language-server", macos = "pip3 install cmake-language-server", linux = "pip3 install cmake-language-server" }
+
+[[server]]
+id = "dockerfile"
+name = "Dockerfile"
+languages = ["dockerfile"]
+command = ["docker-langserver"]
+args = ["--stdio"]
+homepage = "https://github.com/rcjsuen/dockerfile-language-server"
+install = { windows = "npm install -g dockerfile-language-server-nodejs", macos = "npm install -g dockerfile-language-server-nodejs", linux = "npm install -g dockerfile-language-server-nodejs" }

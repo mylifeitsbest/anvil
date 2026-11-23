@@ -344,6 +344,26 @@ impl AnvilApp {
             let r = text(&p, pos2(x + 16.0, cy), Align2::LEFT_CENTER, &b, font.clone(), c.text_muted);
             x = r.right() + 16.0;
         }
+        // ошибки и предупреждения → панель «Проблемы»
+        if !self.lsp.servers.is_empty() {
+            let (e, w) = self.diag_counts();
+            let start = x;
+            icon(&p, Rect::from_min_size(pos2(x, cy - 6.0), vec2(12.0, 12.0)), Icon::Error, if e > 0 { c.err } else { c.text_faint }, 1.2);
+            let r1 = text(&p, pos2(x + 16.0, cy), Align2::LEFT_CENTER, &e.to_string(), font.clone(), if e > 0 { c.err } else { c.text_muted });
+            x = r1.right() + 10.0;
+            icon(&p, Rect::from_min_size(pos2(x, cy - 6.0), vec2(12.0, 12.0)), Icon::Warn, if w > 0 { c.warn } else { c.text_faint }, 1.2);
+            let r2 = text(&p, pos2(x + 16.0, cy), Align2::LEFT_CENTER, &w.to_string(), font.clone(), if w > 0 { c.warn } else { c.text_muted });
+            let zone = Rect::from_min_max(pos2(start - 4.0, rect.top() + 2.0), pos2(r2.right() + 4.0, rect.bottom() - 2.0));
+            let resp = ui.interact(zone, Id::unique("status-problems"), Sense::click());
+            if resp.hovered() {
+                p.rect_filled(zone, cr(4.0), c.hover);
+                ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+            }
+            if resp.clicked() {
+                self.exec(Cmd::ViewProblems);
+            }
+            x = r2.right() + 16.0;
+        }
         // тулчейн для текущего файла
         if let Some(d) = self.doc() {
             let lang = d.lang.id;
@@ -404,6 +424,27 @@ impl AnvilApp {
         }
         if let Some((s, _)) = self.chord {
             right(&p, &format!("{} …", s.label()), c.accent, ui.ctx());
+        }
+        if let Some((label, pct, busy, failed)) = self.lsp_status_label() {
+            let label = match pct {
+                Some(p) => format!("{label} {p}%"),
+                None => label,
+            };
+            let col = if failed {
+                c.warn
+            } else if busy {
+                c.text_muted
+            } else {
+                c.text_faint
+            };
+            let label = if busy {
+                format!("◌ {label}")
+            } else if failed {
+                label
+            } else {
+                format!("✓ {label}")
+            };
+            right(&p, &label, col, ui.ctx());
         }
         if let Some(d) = self.doc() {
             right(&p, d.lang.name, c.text_muted, ui.ctx());

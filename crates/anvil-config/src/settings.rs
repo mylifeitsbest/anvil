@@ -28,6 +28,7 @@ pub struct Settings {
     pub files: FileSettings,
     pub keymap: KeymapSettings,
     pub toolchains: ToolchainSettings,
+    pub lsp: LspSettings,
 }
 
 // ---------------------------------------------------------------- тема
@@ -580,5 +581,58 @@ pub struct ToolchainSettings {
 impl Default for ToolchainSettings {
     fn default() -> Self {
         Self { auto_detect: true, overrides: BTreeMap::new(), save_before_run: true }
+    }
+}
+
+// ---------------------------------------------------------------- языковые серверы
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum InlineDiagnostics {
+    Off,
+    Errors,
+    All,
+}
+
+/// Свой сервер или аргументы для языка: `[lsp.servers.python] command = "pylsp"`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct LspServerOverride {
+    pub command: Option<String>,
+    pub args: Option<Vec<String>>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LspSettings {
+    /// Главный выключатель языковых серверов.
+    pub enabled: bool,
+    pub completion: bool,
+    /// Показывать подсказки во время ввода (иначе только по Ctrl+Space).
+    pub completion_auto: bool,
+    pub hover: bool,
+    pub hover_delay_ms: u32,
+    /// Волнистое подчёркивание ошибок.
+    pub squiggles: bool,
+    /// Текст ошибки в конце строки (как Error Lens): off · errors · all.
+    pub inline_diagnostics: InlineDiagnostics,
+    pub format_on_save: bool,
+    pub servers: BTreeMap<String, LspServerOverride>,
+}
+
+impl Default for LspSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            completion: true,
+            completion_auto: true,
+            hover: true,
+            hover_delay_ms: 450,
+            squiggles: true,
+            inline_diagnostics: InlineDiagnostics::Errors,
+            format_on_save: false,
+            servers: BTreeMap::new(),
+        }
     }
 }

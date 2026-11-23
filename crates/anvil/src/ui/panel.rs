@@ -3,7 +3,7 @@
 use eframe::egui::{self, Align2, CursorIcon, FontId, Id, Rect, Sense, Stroke, pos2, vec2};
 
 use super::{Icon, icon_button, text};
-use crate::app::{AnvilApp, LineKind};
+use crate::app::{AnvilApp, LineKind, PanelTab};
 use crate::commands::Cmd;
 use crate::fonts;
 
@@ -18,9 +18,52 @@ impl AnvilApp {
         }
         let head = Rect::from_min_size(rect.min, vec2(rect.width(), 32.0));
         let cy = head.center().y;
-        let r = text(&p, pos2(head.left() + 14.0, cy), Align2::LEFT_CENTER, "ВЫВОД", self.bold_font(10.5), c.text);
-        p.rect_filled(Rect::from_min_size(pos2(r.left(), head.bottom() - 3.0), vec2(r.width(), 1.5)), super::cr(1.0), c.accent);
-        let mut x = r.right() + 16.0;
+        // вкладки «Вывод» и «Проблемы»
+        let (errs, warns) = self.diag_counts();
+        let tabs = [
+            (PanelTab::Output, "ВЫВОД".to_string()),
+            (PanelTab::Problems, if errs + warns > 0 { format!("ПРОБЛЕМЫ  {}", errs + warns) } else { "ПРОБЛЕМЫ".into() }),
+        ];
+        let mut x = head.left() + 14.0;
+        let mut ind = None;
+        for (tab, label) in tabs {
+            let on = self.panel.tab == tab;
+            let r = text(&p, pos2(x, cy), Align2::LEFT_CENTER, &label, self.bold_font(10.5), if on { c.text } else { c.text_faint });
+            let hit = ui.interact(r.expand2(vec2(6.0, 8.0)), Id::unique(("panel-tab", label.as_str())), Sense::click());
+            if hit.clicked() {
+                self.panel.tab = tab;
+            }
+            if hit.hovered() {
+                ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+            }
+            if on {
+                ind = Some((r.left(), r.width()));
+            }
+            x = r.right() + 18.0;
+        }
+        if let Some((ix, iw)) = ind {
+            let spec = self.spec(&self.settings.animations.tab_indicator.clone());
+            let ix = self.tw.value("panel-ind-x", ix, spec);
+            let iw = self.tw.value("panel-ind-w", iw, spec);
+            p.rect_filled(Rect::from_min_size(pos2(ix, head.bottom() - 3.0), vec2(iw, 1.5)), super::cr(1.0), c.accent);
+        }
+        if self.panel.tab == PanelTab::Problems {
+            let mut bx = head.right() - 36.0;
+            let br = Rect::from_min_size(pos2(bx, head.top() + 4.0), vec2(26.0, 24.0));
+            let ht = self.hover_t("panel-close", ui.rect_contains_pointer(br));
+            if super::icon_button(ui, br, Id::unique("panel-close"), Icon::Close, &c, ht, false).clicked() {
+                self.panel.open = false;
+            }
+            bx -= 30.0;
+            let rr = Rect::from_min_size(pos2(bx, head.top() + 4.0), vec2(26.0, 24.0));
+            let ht = self.hover_t("panel-lsp-restart", ui.rect_contains_pointer(rr));
+            if super::icon_button(ui, rr, Id::unique("panel-lsp-restart"), Icon::Refresh, &c, ht, false).clicked() {
+                self.exec(Cmd::LspRestart);
+            }
+            let body = Rect::from_min_max(pos2(rect.left(), head.bottom() + 2.0), rect.max);
+            self.draw_problems(ui, body);
+            return;
+        }
         if !self.panel.title.is_empty() {
             let t = text(&p, pos2(x, cy), Align2::LEFT_CENTER, &self.panel.title, self.ui_font(11.5), c.text_muted);
             x = t.right() + 12.0;

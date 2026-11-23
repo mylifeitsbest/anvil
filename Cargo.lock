@@ -102,10 +102,11 @@ checksum = "940b3a0ca603d1eade50a4846a2afffd5ef57a9feac2c0e2ec2e14f9ead76000"
 
 [[package]]
 name = "anvil"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anvil-config",
  "anvil-core",
+ "anvil-lsp",
  "anvil-syntax",
  "anvil-toolchains",
  "eframe",
@@ -113,6 +114,7 @@ dependencies = [
  "notify",
  "rfd",
  "serde",
+ "serde_json",
  "toml",
  "toml_edit",
  "winresource",
@@ -120,7 +122,7 @@ dependencies = [
 
 [[package]]
 name = "anvil-config"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "directories",
  "serde",
@@ -132,7 +134,7 @@ dependencies = [
 
 [[package]]
 name = "anvil-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "regex",
@@ -140,8 +142,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "anvil-lsp"
+version = "0.2.0"
+dependencies = [
+ "lsp-types",
+ "ropey",
+ "serde",
+ "serde_json",
+ "toml",
+ "which",
+]
+
+[[package]]
 name = "anvil-syntax"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "tree-sitter",
  "tree-sitter-c",
@@ -160,7 +174,7 @@ dependencies = [
 
 [[package]]
 name = "anvil-toolchains"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
@@ -939,6 +953,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fluent-uri"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17c704e9dbe1ddd863da1e6ff3567795087b1eb201ce80d8fa81162e1516500d"
+dependencies = [
+ "bitflags 1.3.2",
+]
+
+[[package]]
 name = "foldhash"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1527,6 +1550,19 @@ name = "log"
 version = "0.4.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d15f86d12da44cd8d4ec3c73984537eb7f4cadcb9776a575a0a8a05ca11005c"
+
+[[package]]
+name = "lsp-types"
+version = "0.97.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53353550a17c04ac46c585feb189c2db82154fc84b79c7a66c96c2c644f66071"
+dependencies = [
+ "bitflags 1.3.2",
+ "fluent-uri",
+ "serde",
+ "serde_json",
+ "serde_repr",
+]
 
 [[package]]
 name = "memchr"
@@ -2628,6 +2664,17 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
+]
+
+[[package]]
+name = "serde_repr"
+version = "0.1.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d3b1629de253c70a0508c3899572da79ca359fdab27c7920ff00406df418906"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.10",
 ]
 
 [[package]]

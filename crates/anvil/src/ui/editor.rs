@@ -1,6 +1,6 @@
 //! Редактор кода: ввод, мышь, прокрутка, отрисовка текста, курсоры, миникарта, эффекты.
 
-use anvil_config::{CurrentLine, CursorBlink, CursorStyle, LineNumbers, TypingEffect, Visibility, Whitespace};
+use anvil_config::{CurrentLine, CursorBlink, CursorStyle, InlineDiagnostics, LineNumbers, TypingEffect, Visibility, Whitespace};
 use anvil_core::{EditKind, Move, text as ctext};
 use eframe::egui::{self, Align2, Color32, CursorIcon, Event, FontId, Id, Key, Mesh, Pos2, Rect, Sense, Shape, Stroke, StrokeKind, pos2, vec2};
 use egui::text::{LayoutJob, TextFormat};
@@ -135,19 +135,31 @@ impl AnvilApp {
         if resp.hovered() && pointer.is_some_and(|p| p.x > gutter_right) {
             ctx.set_cursor_icon(CursorIcon::Text);
         }
-        let pressed = resp.hovered() && ctx.input(|i| i.pointer.primary_pressed());
+        let doc_id = self.docs[idx].id;
+        // в режиме сценария (--script) настоящая мышь не мешает
+        let mouse = self.args.script.is_empty();
+        let pressed = mouse && resp.hovered() && ctx.input(|i| i.pointer.primary_pressed());
+        let mut goto_def = false;
         if pressed && let Some(pp) = pointer {
             self.focus = Focus::Editor;
+            self.lsp.completion = None;
+            self.lsp.hover = None;
             let doc = &mut self.docs[idx];
             let pos = pos_at(doc, pp);
-            if mods.alt {
+            if (mods.ctrl || mods.command) && !mods.alt {
+                doc.ed.set_cursor(pos);
+                goto_def = true;
+            } else if mods.alt {
                 doc.ed.toggle_cursor(pos);
             } else if mods.shift {
                 doc.ed.extend_to(pos);
             } else {
                 doc.ed.set_cursor(pos);
             }
-            self.dragging = !mods.alt;
+            self.dragging = !mods.alt && !goto_def;
+        }
+        if goto_def {
+            self.lsp_goto_definition();
         }
         if self.dragging {
             if ctx.input(|i| i.pointer.primary_down()) {
@@ -166,7 +178,11 @@ impl AnvilApp {
                 self.dragging = false;
             }
         }
+        if !mouse {
+            self.dragging = false;
+        }
         if resp.double_clicked()
+            && mouse
             && let Some(pp) = pointer
         {
             let doc = &mut self.docs[idx];
@@ -194,12 +210,41 @@ impl AnvilApp {
             }
         }
 
+        // наведение: подсказка языкового сервера и текст ошибки
+        let hover_at = ctx.input(|i| i.pointer.hover_pos()).filter(|p| mouse && resp.hovered() && p.x > gutter_right).map(|p| (p, pos_at(&self.docs[idx], p)));
+        self.hover_probe(doc_id, hover_at);
+
         // ---------------------------------------------------------------- клавиатура
+        let mut evs: Vec<Event> = events.to_vec();
+        if focused && self.lsp.completion.as_ref().is_some_and(|c| c.doc == doc_id) {
+            evs = self.completion_keys(evs);
+        }
+        let typed: Option<char> = evs.iter().rev().find_map(|e| if let Event::Text(t) = e { t.chars().last() } else { None });
+        let deleted = evs.iter().any(|e| matches!(e, Event::Key { key: Key::Backspace | Key::Delete, pressed: true, .. }));
+        let navigated = evs.iter().any(|e| {
+            matches!(
+                e,
+                Event::Key {
+                    key: Key::ArrowLeft
+                        | Key::ArrowRight
+                        | Key::ArrowUp
+                        | Key::ArrowDown
+                        | Key::Home
+                        | Key::End
+                        | Key::PageUp
+                        | Key::PageDown
+                        | Key::Enter
+                        | Key::Escape,
+                    pressed: true,
+                    ..
+                }
+            )
+        });
         if focused {
             let doc = &mut self.docs[idx];
             let ed = &mut doc.ed;
             let mut changed = false;
-            for ev in events {
+            for ev in &evs {
                 match ev {
                     Event::Text(t) => {
                         if !t.is_empty() && !t.chars().all(char::is_control) {
@@ -274,6 +319,9 @@ impl AnvilApp {
                 doc.view.reveal = true;
                 doc.view.activity = now;
             }
+        }
+        if focused {
+            self.after_typing(doc_id, typed, deleted, navigated);
         }
 
         // ---------------------------------------------------------------- прокрутка к курсору и анимации
@@ -382,6 +430,7 @@ impl AnvilApp {
         };
         let ox = x0 - disp_x + shake_off.x;
         let oy = top - disp_y + shake_off.y;
+        self.geom = Some(crate::lsp::EditorGeom { doc: doc_id, ox, oy, line_h, char_w, tab, font_size: fs });
         if !spawn.is_empty() {
             let mut seed = (now * 1e6) as u64 | 7;
             let n = (6.0 * s.animations.typing.intensity).round().clamp(1.0, 40.0) as usize;
@@ -428,6 +477,7 @@ impl AnvilApp {
         let first = ((disp_y - s.editor.padding_top) / line_h).floor().max(0.0) as usize;
         let last = (first + view_lines + 2).min(total);
         let line_y = |l: usize| oy + l as f32 * line_h;
+        let diags = if s.lsp.enabled { self.doc_diags(doc_id) } else { Vec::new() };
         let doc = &self.docs[idx];
         let spans = &doc.spans;
         let brackets = &doc.brackets;
@@ -749,6 +799,73 @@ impl AnvilApp {
             }
         }
 
+        // диагностика: волнистые линии, метки на полях и текст в конце строки (как Error Lens)
+        if !diags.is_empty() {
+            let sev_col = |sv: u8| match sv {
+                1 => c.err,
+                2 => c.warn,
+                3 => c.accent,
+                _ => c.text_faint,
+            };
+            let mut line_max: std::collections::BTreeMap<usize, (u8, &str)> = std::collections::BTreeMap::new();
+            for (a, b, sev, msg) in &diags {
+                let la = rope.char_to_line((*a).min(rope.len_chars()));
+                if la + 1 < first || la > last {
+                    continue;
+                }
+                let e = line_max.entry(la).or_insert((*sev, msg.as_str()));
+                if *sev < e.0 {
+                    *e = (*sev, msg.as_str());
+                }
+                if !s.lsp.squiggles {
+                    continue;
+                }
+                let b = if *b <= *a { (*a + 1).min(rope.len_chars()) } else { *b };
+                let col = sev_col(*sev);
+                for r in seg_rect(*a, b, false) {
+                    let y = r.bottom() - 1.5;
+                    if *sev >= 4 {
+                        tp.line_segment(
+                            [pos2(r.left(), y + 0.5), pos2(r.left() + r.width().min(char_w * 2.0), y + 0.5)],
+                            Stroke::new(1.0, with_alpha(col, 0.7)),
+                        );
+                        continue;
+                    }
+                    let mut pts = Vec::new();
+                    let mut x = r.left();
+                    let mut up = true;
+                    while x <= r.right().max(r.left() + char_w) + 0.1 {
+                        pts.push(pos2(x, if up { y - 1.3 } else { y + 0.7 }));
+                        x += 2.0;
+                        up = !up;
+                    }
+                    if pts.len() >= 2 {
+                        tp.add(Shape::line(pts, Stroke::new(1.0, col)));
+                    }
+                }
+            }
+            for (&l, &(sev, msg)) in &line_max {
+                let y = line_y(l);
+                let col = sev_col(sev);
+                p.circle_filled(pos2(rect.left() + 9.0, y + line_h / 2.0), 3.0, col);
+                let show = match s.lsp.inline_diagnostics {
+                    InlineDiagnostics::Off => false,
+                    InlineDiagnostics::Errors => sev == 1,
+                    InlineDiagnostics::All => sev <= 3,
+                };
+                if show {
+                    tp.rect_filled(
+                        Rect::from_min_max(pos2(text_rect.left(), y), pos2(text_rect.right(), y + line_h)),
+                        egui::CornerRadius::ZERO,
+                        with_alpha(col, 0.07),
+                    );
+                    let end_col = ctext::display_col(&rope, rope.line_to_char(l) + ctext::line_len(&rope, l), tab);
+                    let first_line = msg.lines().next().unwrap_or_default();
+                    tp.text(pos2(ox + (end_col + 3) as f32 * char_w, y + line_h / 2.0), Align2::LEFT_CENTER, first_line, small.clone(), with_alpha(col, 0.85));
+                }
+            }
+        }
+
         // курсоры
         let period = s.cursor.blink_interval_ms.max(200) as f32 / 1000.0;
         let (blink_a, blink_h) = if focused && self.window_focused {
@@ -945,6 +1062,17 @@ impl AnvilApp {
                 let sh = view_lines as f32 * lp;
                 let a = if mm_resp.hovered() || mm_resp.dragged() { 1.6 } else { 1.0 };
                 mmp.rect_filled(Rect::from_min_size(pos2(mm.left(), sy), vec2(mm_w, sh)), egui::CornerRadius::ZERO, with_alpha(c.minimap_slider, a));
+            }
+            for (a, _, sev, _) in diags.iter().filter(|d| d.2 <= 2) {
+                let l = rope.char_to_line((*a).min(rope.len_chars()));
+                if l >= start && l < start + mm_lines {
+                    let y = mm.top() + (l - start) as f32 * lp;
+                    mmp.rect_filled(
+                        Rect::from_min_size(pos2(mm.right() - 4.0, y), vec2(3.0, lp.max(2.0))),
+                        egui::CornerRadius::ZERO,
+                        if *sev == 1 { c.err } else { c.warn },
+                    );
+                }
             }
             if mm_resp.is_pointer_button_down_on()
                 && let Some(pp) = pointer

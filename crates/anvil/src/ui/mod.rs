@@ -3,6 +3,7 @@
 
 pub mod chrome;
 pub mod editor;
+pub mod lsp_ui;
 pub mod overlay;
 pub mod panel;
 pub mod sidebar;
