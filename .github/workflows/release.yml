@@ -15,6 +15,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
 
 jobs:
   build:
@@ -35,6 +36,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # при ручном запуске собираем код тега, а не текущий main
+          ref: ${{ env.TAG }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -68,12 +72,17 @@ jobs:
           cp target/${{ matrix.target }}/release/anvil dist/anvil
           tar -czf dist/${{ matrix.name }}.tar.gz -C dist anvil -C "$GITHUB_WORKSPACE" README.md LICENSE
           rm dist/anvil
-      - name: Приложить к релизу
-        uses: softprops/action-gh-release@v2
+      - name: Сохранить файлы
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ github.event.release.tag_name || inputs.tag }}
-          files: dist/*
-          overwrite_files: true
+          name: ${{ matrix.name }}
+          path: dist/*
+      - name: Приложить к релизу
+        # только загрузка файлов: правка самого релиза токеном Actions запрещена (403)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
 
   # Relay для совместной работы: статический бинарник (musl) — запускается на любом Linux-сервере
   relay:
@@ -81,6 +90,9 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          # при ручном запуске собираем код тега, а не текущий main
+          ref: ${{ env.TAG }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-musl
@@ -95,9 +107,14 @@ jobs:
           cp target/x86_64-unknown-linux-musl/release/anvil-relay dist/anvil-relay
           tar -czf dist/anvil-relay-linux-x64.tar.gz -C dist anvil-relay -C "$GITHUB_WORKSPACE" LICENSE
           rm dist/anvil-relay
-      - name: Приложить к релизу
-        uses: softprops/action-gh-release@v2
+      - name: Сохранить файлы
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ github.event.release.tag_name || inputs.tag }}
-          files: dist/*
-          overwrite_files: true
+          name: anvil-relay-linux-x64
+          path: dist/*
+      - name: Приложить к релизу
+        # только загрузка файлов: правка самого релиза токеном Actions запрещена (403)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
