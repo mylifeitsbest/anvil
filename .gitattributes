@@ -1,0 +1,4 @@
+mockup/** linguist-documentation
+*.toml text eol=lf
+*.rs text eol=lf
+*.md text eol=lf
