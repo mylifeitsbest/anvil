@@ -69,13 +69,17 @@ impl ServerCertVerifier for Pinned {
 }
 
 /// Настройки клиента: TLS 1.3, сервер проверяется по отпечатку.
+///
+/// Имя сервера (SNI) не отправляется: оно не нужно — сервер сверяется по отпечатку, — а часть
+/// сетевых фильтров (DPI) рвёт TLS-соединения к «незнакомым» адресам с SNI, но пропускает без него.
 pub fn client_config(fp: Fingerprint) -> Result<Arc<ClientConfig>, rustls::Error> {
     let provider = provider();
-    let cfg = ClientConfig::builder_with_provider(provider.clone())
+    let mut cfg = ClientConfig::builder_with_provider(provider.clone())
         .with_protocol_versions(&[&rustls::version::TLS13])?
         .dangerous()
         .with_custom_certificate_verifier(Arc::new(Pinned { fp, provider }))
         .with_no_client_auth();
+    cfg.enable_sni = false;
     Ok(Arc::new(cfg))
 }
 
@@ -88,7 +92,7 @@ pub fn server_config(cert: &[u8], key: &[u8]) -> Result<Arc<ServerConfig>, rustl
     Ok(Arc::new(cfg))
 }
 
-/// Имя сервера для рукопожатия. Проверяется отпечаток, а не имя, поэтому подходит любое.
+/// Имя сервера для рукопожатия (в сеть не уходит — SNI выключен). Проверяется отпечаток, а не имя.
 pub fn server_name() -> Result<ServerName<'static>, rustls::pki_types::InvalidDnsNameError> {
     ServerName::try_from("anvil-relay")
 }
@@ -108,5 +112,11 @@ mod tests {
     #[test]
     fn server_name_is_valid() {
         assert!(matches!(server_name(), Ok(ServerName::DnsName(_))));
+    }
+
+    #[test]
+    fn client_sends_no_sni() -> Result<(), rustls::Error> {
+        assert!(!client_config([0; 32])?.enable_sni);
+        Ok(())
     }
 }

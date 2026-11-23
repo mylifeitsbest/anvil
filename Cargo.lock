@@ -102,7 +102,7 @@ checksum = "940b3a0ca603d1eade50a4846a2afffd5ef57a9feac2c0e2ec2e14f9ead76000"
 
 [[package]]
 name = "anvil"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anvil-collab",
  "anvil-config",
@@ -124,7 +124,7 @@ dependencies = [
 
 [[package]]
 name = "anvil-collab"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "postcard",
  "ring",
@@ -137,7 +137,7 @@ dependencies = [
 
 [[package]]
 name = "anvil-config"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "directories",
  "serde",
@@ -149,7 +149,7 @@ dependencies = [
 
 [[package]]
 name = "anvil-core"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "criterion",
  "regex",
@@ -158,7 +158,7 @@ dependencies = [
 
 [[package]]
 name = "anvil-lsp"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "lsp-types",
  "ropey",
@@ -170,7 +170,7 @@ dependencies = [
 
 [[package]]
 name = "anvil-relay"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anvil-collab",
  "directories",
@@ -180,7 +180,7 @@ dependencies = [
 
 [[package]]
 name = "anvil-syntax"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "tree-sitter",
  "tree-sitter-c",
@@ -199,7 +199,7 @@ dependencies = [
 
 [[package]]
 name = "anvil-toolchains"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "serde",
  "thiserror 2.0.21",
