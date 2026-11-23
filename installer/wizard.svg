@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="656" height="1256" viewBox="0 0 164 314">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#18181d"/>
+      <stop offset="1" stop-color="#0b0b0e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.36" r="0.55">
+      <stop offset="0" stop-color="#ff7a45" stop-opacity="0.34"/>
+      <stop offset="0.55" stop-color="#ff7a45" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#ff7a45" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#ffc597"/>
+      <stop offset="0.45" stop-color="#ff7a45"/>
+      <stop offset="1" stop-color="#d9431c"/>
+    </linearGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff7a45" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#ff7a45" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#ff7a45" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="164" height="314" fill="url(#bg)"/>
+  <rect width="164" height="314" fill="url(#glow)"/>
+  <!-- тонкая сетка, как у редактора -->
+  <g stroke="#ffffff" stroke-opacity="0.035" stroke-width="0.5">
+    <path d="M0 40H164M0 80H164M0 120H164M0 160H164M0 200H164M0 240H164M0 280H164"/>
+    <path d="M27 0V314M55 0V314M82 0V314M109 0V314M137 0V314"/>
+  </g>
+  <g transform="translate(83 112) scale(4.1) translate(-11.5 -12)">
+    <path fill="url(#metal)" d="M6 5H21V9H18C17 9 16.5 10 16.5 11V14H19.5C20.5 14 21 15 21 16V19H6V16C6 15 6.5 14 7.5 14H10.5V11C10.5 10 10 9 9 9H8C5.5 9 3.5 8 2 6.5C3.5 5.5 4.5 5 6 5Z"/>
+    <path fill="#ffffff" fill-opacity="0.28" d="M6 5H21V5.9H6C4.7 5.9 3.7 6.3 2.6 6.9L2 6.5C3.5 5.5 4.5 5 6 5Z"/>
+  </g>
+  <g fill="#ffd2ae">
+    <path d="M118 66l1.6 4.8 4.8 1.6-4.8 1.6-1.6 4.8-1.6-4.8-4.8-1.6 4.8-1.6z"/>
+    <circle cx="130" cy="86" r="1.4" fill-opacity="0.8"/>
+    <circle cx="104" cy="74" r="1.1" fill-opacity="0.6"/>
+  </g>
+  <rect x="32" y="166" width="100" height="0.8" fill="url(#line)"/>
+  <text x="82" y="194" text-anchor="middle" font-family="Segoe UI Variable Display, Segoe UI, sans-serif" font-weight="600" font-size="22" fill="#ececf0" letter-spacing="0.5">Anvil</text>
+  <text x="82" y="212" text-anchor="middle" font-family="Segoe UI Variable Text, Segoe UI, sans-serif" font-size="8.2" fill="#8e8e9a">быстрая и лёгкая IDE на Rust</text>
+  <g font-family="Cascadia Code, Consolas, monospace" font-size="6.4" fill="#55555f" text-anchor="middle">
+    <text x="82" y="286">GPU · LSP · 40+ компиляторов</text>
+  </g>
+</svg>

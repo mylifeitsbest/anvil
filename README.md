@@ -13,7 +13,9 @@
 ![Платформы](https://img.shields.io/badge/Windows%20%C2%B7%20Linux%20%C2%B7%20macOS-555?style=flat-square)
 [![Лицензия MIT](https://img.shields.io/badge/%D0%BB%D0%B8%D1%86%D0%B5%D0%BD%D0%B7%D0%B8%D1%8F-MIT-555?style=flat-square)](LICENSE)
 
-### [⬇ Скачать для Windows (.exe)](https://github.com/mylifeitsbest/anvil/releases/latest)
+### [⬇ Скачать установщик для Windows](https://github.com/mylifeitsbest/anvil/releases/latest/download/anvil-setup-x64.exe)
+
+<sub>или <a href="https://github.com/mylifeitsbest/anvil/releases/latest">портативный anvil.exe, Linux и macOS</a></sub>
 
 <img src="docs/screenshots/editor-dark.png" alt="Anvil — тёмная тема" width="880">
 
@@ -35,11 +37,16 @@
 
 | Система | Файл | |
 |---|---|---|
-| **Windows 10/11 x64** | `anvil.exe` или `anvil-windows-x64.zip` | [Последний релиз](https://github.com/mylifeitsbest/anvil/releases/latest) |
+| **Windows 10/11 x64 — установщик** | `anvil-setup-x64.exe` | [Скачать](https://github.com/mylifeitsbest/anvil/releases/latest/download/anvil-setup-x64.exe) |
+| Windows 10/11 x64 — портативный | `anvil.exe` или `anvil-windows-x64.zip` | [Последний релиз](https://github.com/mylifeitsbest/anvil/releases/latest) |
 | Linux x64 | `anvil-linux-x64.tar.gz` | [Последний релиз](https://github.com/mylifeitsbest/anvil/releases/latest) |
 | macOS (Apple Silicon) | `anvil-macos-arm64.tar.gz` | [Последний релиз](https://github.com/mylifeitsbest/anvil/releases/latest) |
 
-`anvil.exe` — один файл, установка не нужна. Пока он не подписан сертификатом, поэтому Windows SmartScreen может предупредить: «Подробнее» → «Выполнить в любом случае».
+**Установщик** ставит Anvil только для вас, без прав администратора (в `%LOCALAPPDATA%\Programs\Anvil`); в мастере можно выбрать установку для всех пользователей. Он добавляет ярлыки в «Пуск» и на рабочий стол, пункт «Открыть в Anvil» в меню папок и файлов, по желанию — `anvil` в PATH. Удаляется через «Параметры → Приложения»; ваши настройки при этом сохраняются.
+
+**Портативный** `anvil.exe` — один файл, установка не нужна.
+
+Файлы пока не подписаны сертификатом, поэтому Windows SmartScreen может предупредить: «Подробнее» → «Выполнить в любом случае».
 
 **Портативный режим:** создайте рядом с `anvil.exe` папку `anvil-data` — настройки, темы и паки будут храниться в ней (удобно для флешки).
 

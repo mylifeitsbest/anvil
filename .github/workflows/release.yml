@@ -51,6 +51,15 @@ jobs:
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item target/${{ matrix.target }}/release/anvil.exe dist/anvil.exe
           Compress-Archive -Path dist/anvil.exe, README.md, LICENSE -DestinationPath dist/${{ matrix.name }}.zip
+      - name: Установщик (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          $ver = ((cargo metadata --no-deps --format-version 1 | ConvertFrom-Json).packages | Where-Object name -eq 'anvil').version
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Q "/DAppVersion=$ver" "/DSourceExe=..\target\${{ matrix.target }}\release\anvil.exe" installer\anvil.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-Item dist\anvil-setup-x64.exe
       - name: Упаковка (Linux / macOS)
         if: runner.os != 'Windows'
         run: |
