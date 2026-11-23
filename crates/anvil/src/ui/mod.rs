@@ -189,17 +189,22 @@ pub fn icon(p: &Painter, rect: Rect, ic: Icon, color: Color32, w: f32) {
     }
 }
 
-/// Логотип-наковальня из выпуклых частей, цвет — акцент темы.
-pub fn logo(p: &Painter, rect: Rect, color: Color32, highlight: Color32) {
+/// Логотип — буква «A»: каретка ^ и черта под ней (как assets/icon/anvil-small.svg), цвет — акцент темы.
+pub fn logo(p: &Painter, rect: Rect, color: Color32) {
     let s = rect.width().min(rect.height()) / 24.0;
-    let o = rect.center() - vec2(11.5 * s, 12.0 * s);
+    let o = rect.center() - vec2(12.0 * s, 12.0 * s);
     let pt = |x: f32, y: f32| o + vec2(x * s, y * s);
-    let body = vec![pt(2.0, 6.5), pt(6.0, 5.0), pt(21.0, 5.0), pt(21.0, 9.0), pt(8.0, 9.0)];
-    p.add(Shape::convex_polygon(body, color, Stroke::NONE));
-    p.rect_filled(Rect::from_min_max(pt(10.5, 8.8), pt(16.5, 14.2)), CornerRadius::ZERO, color);
-    let base = vec![pt(7.5, 14.0), pt(19.5, 14.0), pt(21.0, 16.0), pt(21.0, 19.0), pt(6.0, 19.0), pt(6.0, 16.0)];
-    p.add(Shape::convex_polygon(base, color, Stroke::NONE));
-    p.line_segment([pt(6.2, 5.6), pt(20.6, 5.6)], Stroke::new(0.9 * s, highlight));
+    // Отрезки с круглыми концами: egui рисует торцы прямыми, поэтому скругляем кругами.
+    let round = |ends: &[Pos2], w: f32| {
+        for e in ends.windows(2) {
+            p.line_segment([e[0], e[1]], Stroke::new(w * s, color));
+        }
+        for &e in ends {
+            p.circle_filled(e, w * s / 2.0, color);
+        }
+    };
+    round(&[pt(5.2, 18.95), pt(12.0, 4.55), pt(18.8, 18.95)], 4.1);
+    round(&[pt(9.95, 19.95), pt(14.05, 19.95)], 3.1);
 }
 
 /// Кнопка-иконка с анимированной подсветкой при наведении. Возвращает ответ egui.

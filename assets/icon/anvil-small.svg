@@ -1,10 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 256 256">
   <defs>
     <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#25252b"/><stop offset="1" stop-color="#0e0e11"/></linearGradient>
-    <linearGradient id="metal" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#ffb788"/><stop offset="0.5" stop-color="#ff7a45"/><stop offset="1" stop-color="#e4501f"/></linearGradient>
+    <linearGradient id="metal" gradientUnits="userSpaceOnUse" x1="96" y1="48" x2="150" y2="212"><stop offset="0" stop-color="#ffb788"/><stop offset="0.5" stop-color="#ff7a45"/><stop offset="1" stop-color="#e4501f"/></linearGradient>
   </defs>
   <rect x="0" y="0" width="256" height="256" rx="52" fill="url(#tile)"/>
-  <g transform="translate(130 134) scale(10.6) translate(-11.5 -12)">
-    <path fill="url(#metal)" d="M6 5H21V9H18C17 9 16.5 10 16.5 11V14H19.5C20.5 14 21 15 21 16V19H6V16C6 15 6.5 14 7.5 14H10.5V11C10.5 10 10 9 9 9H8C5.5 9 3.5 8 2 6.5C3.5 5.5 4.5 5 6 5Z"/>
+  <g fill="none" stroke="url(#metal)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M62 196L128 56L194 196" stroke-width="40"/>
+    <path d="M108 206H148" stroke-width="30"/>
   </g>
 </svg>

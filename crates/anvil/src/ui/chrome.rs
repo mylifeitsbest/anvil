@@ -87,7 +87,7 @@ impl AnvilApp {
 
         let cy = rect.center().y;
         let mut x = rect.left() + 14.0;
-        logo(&p, Rect::from_min_size(pos2(x, cy - 9.0), vec2(18.0, 18.0)), c.accent, with_alpha(Color32::WHITE, if c.dark { 0.35 } else { 0.6 }));
+        logo(&p, Rect::from_min_size(pos2(x, cy - 9.0), vec2(18.0, 18.0)), c.accent);
         x += 26.0;
         let name = if self.ws.name.is_empty() { "Anvil".to_string() } else { self.ws.name.clone() };
         let r = text(&p, pos2(x, cy), Align2::LEFT_CENTER, &name, self.bold_font(12.5), c.text);
@@ -554,7 +554,7 @@ impl AnvilApp {
         let x = rect.center().x - w / 2.0;
         let mut y = rect.top() + (rect.height() * 0.16).max(30.0);
         let k = self.tw.since(self.launched + 0.1, self.spec(&self.settings.animations.launch.clone()));
-        logo(&p, Rect::from_min_size(pos2(x, y + (1.0 - k) * 8.0), vec2(40.0, 40.0)), with_alpha(c.accent, k), with_alpha(Color32::WHITE, 0.3 * k));
+        logo(&p, Rect::from_min_size(pos2(x, y + (1.0 - k) * 8.0), vec2(40.0, 40.0)), with_alpha(c.accent, k));
         text(&p, pos2(x + 54.0, y + 12.0), Align2::LEFT_CENTER, "Anvil", self.bold_font(24.0), with_alpha(c.text, k));
         text(
             &p,

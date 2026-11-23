@@ -523,7 +523,7 @@
     sliders: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
   };
   const svg = (p, extra = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ${extra}>${p}</svg>`;
-  const LOGO = id => `<svg class="logo" viewBox="0 0 24 24"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--accent2)"/><stop offset="1" style="stop-color:var(--accent)"/></linearGradient></defs><path fill="url(#${id})" d="M6 5H21V9H18C17 9 16.5 10 16.5 11V14H19.5C20.5 14 21 15 21 16V19H6V16C6 15 6.5 14 7.5 14H10.5V11C10.5 10 10 9 9 9H8C5.5 9 3.5 8 2 6.5C3.5 5.5 4.5 5 6 5Z"/></svg>`;
+  const LOGO = id => `<svg class="logo" viewBox="0 0 24 24"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--accent2)"/><stop offset="1" style="stop-color:var(--accent)"/></linearGradient></defs><g fill="none" stroke="url(#${id})" stroke-linecap="round" stroke-linejoin="round"><path stroke-width="4.1" d="M5.2 18.95L12 4.55L18.8 18.95"/><path stroke-width="3.1" d="M9.95 19.95H14.05"/></g></svg>`;
 
   // ============================================================ DOM
   const BW = 958, BH = 516, SBW = 216, PANEL_H = 170;

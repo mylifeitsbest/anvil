@@ -34,7 +34,6 @@ macro_rules! colors {
         #[derive(Clone, Debug)]
         pub struct Colors {
             $(pub $f: Color32,)*
-            pub dark: bool,
             pub syntax: Vec<SynStyle>,
             pub brackets: Vec<Color32>,
             pub rainbow: Vec<Color32>,
@@ -48,7 +47,6 @@ macro_rules! colors {
                 let surface = |c: Rgba| if op < 0.999 { c32(c.with_alpha(op)) } else { c32(c) };
                 let mut out = Self {
                     $($f: c32(p.$f),)*
-                    dark: t.dark,
                     syntax: t.syntax.iter().map(|st| SynStyle { color: c32(st.color), italic: st.italic, underline: st.underline }).collect(),
                     // на светлом фоне пастельные скобки теряются — затемняем
                     brackets: s.editor.bracket_colors.iter().map(|c| if t.dark { c32(*c) } else { c32(c.lerp(Rgba::BLACK, 0.38)) }).collect(),
