@@ -1,0 +1,191 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Anvil — settings.toml
+#  Все значения ниже — значения по умолчанию. Достаточно оставить только то,
+#  что хотите поменять. Изменения применяются сразу после сохранения файла.
+#  Настройки проекта: .anvil/settings.toml в корне папки (перекрывают эти).
+# ─────────────────────────────────────────────────────────────────────────────
+
+[theme]
+# anvil-dark · anvil-light · midnight · paper · graphite · oled · или своя из папки themes/
+name = "anvil-dark"
+# Акцентный цвет. Закомментирован — значит берётся из темы.
+# accent = "#8b7bff"
+# Скругление углов интерфейса, px (0 — строгие прямые углы)
+radius = 8.0
+# Подкрасить заголовок и статус-бар (как Peacock) — удобно задавать на проект
+# tint = "#2fc6f6"
+tint_strength = 0.18
+# Контраст текста 0.5..1.5
+contrast = 1.0
+
+# Точечная перекраска интерфейса. Ключи: bg, sidebar, titlebar, tabs, tab_active,
+# statusbar, panel, popup, border, border_strong, text, text_muted, text_faint,
+# hover, selection, current_line, indent_guide, indent_guide_active, line_number,
+# line_number_active, accent, on_accent, caret, ok, warn, err, scrim, shadow,
+# minimap_slider, find_match, find_match_active, bracket_match
+[colors]
+# sidebar = "#101014"
+
+# Точечная перекраска подсветки. Классы: text, keyword, function, type, string,
+# number, comment, macro, attribute, punctuation, operator, variable, parameter,
+# property, constant, builtin, label, tag, escape, module, heading, link, emphasis
+[syntax]
+# keyword = "#ff9e64"
+# comment = { color = "#6a6a76", italic = true }
+
+[editor]
+# Имя системного шрифта, путь к .ttf/.otf или "auto" (Cascadia Code → JetBrains Mono → Consolas → встроенный)
+font = "auto"
+font_size = 14.0
+line_height = 1.6
+letter_spacing = 0.0
+tab_size = 4
+insert_spaces = true
+# on · relative · off
+line_numbers = "on"
+# Текущая строка: fill · border · gutter · none
+current_line = "fill"
+indent_guides = true
+# Разноцветные отступы (как indent-rainbow)
+rainbow_indent = false
+rainbow_indent_colors = ["#ffd16614", "#c77dff14", "#4cc9f014", "#06d6a014"]
+# Раскраска скобок по глубине (как Bracket Pair Colorizer)
+bracket_colorization = true
+bracket_colors = ["#ffd166", "#c77dff", "#4cc9f0"]
+auto_close_brackets = true
+auto_close_quotes = true
+auto_indent = true
+# Показ пробелов: none · boundary · all
+render_whitespace = "none"
+scroll_beyond_last_line = true
+scroll_sensitivity = 1.0
+padding_top = 8.0
+# Ширина колонки текста в символах, текст по центру (0 — во всю ширину)
+max_width = 0
+# TODO / FIXME / NOTE / HACK / ! / ? в комментариях (как Better Comments)
+comment_tags = true
+comment_tag_colors = { TODO = "#f5c04a", FIXME = "#ff5c5c", NOTE = "#4cc9f0", HACK = "#c77dff", "!" = "#ff5c5c", "?" = "#4cc9f0" }
+highlight_matching_brackets = true
+highlight_selection_matches = true
+
+[editor.minimap]
+enabled = true
+width = 72.0
+line_px = 3.0
+# always · hover · never
+slider = "always"
+opacity = 0.8
+
+[cursor]
+# line · block · underline · hollow
+style = "line"
+width = 2.0
+# smooth · blink · phase · expand · solid
+blink = "smooth"
+blink_interval_ms = 1060
+# Перестать мигать после N секунд простоя (0 — мигать всегда). Ноль нагрузки в простое.
+blink_timeout_s = 12
+# Плавное перемещение курсора
+smooth = true
+smooth_ms = 90
+# Шлейф при прыжках курсора
+trail = true
+trail_ms = 140
+glow = true
+glow_radius = 8.0
+# Свой цвет курсора (по умолчанию — акцент)
+# color = "#ffffff"
+
+[ui]
+# Шрифт интерфейса: имя, путь или "auto"
+font = "auto"
+font_size = 13.0
+# Масштаб всего интерфейса
+scale = 1.0
+# compact · comfortable · spacious
+density = "comfortable"
+# left · right
+sidebar = "left"
+sidebar_width = 240.0
+sidebar_visible = true
+titlebar_height = 38.0
+tab_height = 34.0
+# underline · pill · classic
+tab_style = "underline"
+# Кнопка закрытия вкладки: always · hover · never
+tab_close_button = "hover"
+statusbar = true
+statusbar_height = 24.0
+breadcrumbs = true
+# Значки файлов: dots · letters · none
+file_icons = "dots"
+panel_height = 220.0
+shadows = true
+show_fps = false
+# Режим «дзен»: только текст
+zen = false
+
+# Каждая анимация: enabled, duration_ms, style (slide · fade · scale · none)
+# и необязательный easing (linear · out-cubic · out-quint · in-out-cubic · out-back · spring)
+[animations]
+# Главный выключатель
+enabled = true
+# Множитель скорости: 2.0 — вдвое быстрее
+speed = 1.0
+easing = "out-cubic"
+smooth_scroll = true
+scroll_smoothing_ms = 110
+launch = { enabled = true, duration_ms = 380, style = "scale" }
+tabs = { enabled = true, duration_ms = 180, style = "slide" }
+tab_indicator = { enabled = true, duration_ms = 220, style = "slide" }
+panels = { enabled = true, duration_ms = 220, style = "slide" }
+palette = { enabled = true, duration_ms = 170, style = "scale" }
+theme = { enabled = true, duration_ms = 380, style = "fade" }
+hover = { enabled = true, duration_ms = 110, style = "fade" }
+tree = { enabled = true, duration_ms = 160, style = "slide" }
+tree_stagger_ms = 14
+selection = { enabled = true, duration_ms = 90, style = "fade" }
+current_line = { enabled = true, duration_ms = 110, style = "slide" }
+toasts = { enabled = true, duration_ms = 240, style = "slide" }
+# Эффект при вводе: none · pop · sparks (как Power Mode) · glow
+typing = { effect = "none", intensity = 1.0, shake = false }
+
+[window]
+# Прозрачность окна 0.3..1 (как GlassIt). Нужен перезапуск.
+opacity = 1.0
+custom_titlebar = true
+width = 1280.0
+height = 800.0
+start_maximized = false
+restore_session = true
+vsync = true
+
+[files]
+# off · delay · focus
+auto_save = "off"
+auto_save_delay_ms = 1000
+exclude = ["target", "node_modules", ".git", "dist", "build", "__pycache__", ".venv", ".idea", ".vs"]
+show_hidden = false
+trim_trailing_whitespace = false
+insert_final_newline = true
+# Файлы крупнее (МБ) открываются без подсветки
+large_file_mb = 8
+
+[keymap]
+# vscode · jetbrains · sublime
+preset = "vscode"
+# Свои сочетания. Пустая команда снимает привязку.
+bindings = []
+# bindings = [
+#   { key = "ctrl+shift+r", command = "run.file" },
+#   { key = "ctrl+k", command = "" },
+# ]
+
+[toolchains]
+auto_detect = true
+save_before_run = true
+
+# Свои команды сборки/запуска по языкам. Подстановки: {file} {dir} {stem} {out} {root}
+[toolchains.overrides]
+# rust = { run = "cargo run --release" }
+# python = { run = "py -3.13 {file}" }

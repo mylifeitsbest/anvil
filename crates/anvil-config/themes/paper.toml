@@ -1,0 +1,27 @@
+name = "Paper"
+dark = false
+
+[base]
+bg = "#f8f4eb"
+surface = "#f0eadd"
+popup = "#fcfaf4"
+border = "#3a2c1a14"
+text = "#2b251f"
+muted = "#7a6e60"
+faint = "#b1a596"
+accent = "#b5542a"
+ok = "#4f8a3a"
+warn = "#b8860b"
+err = "#c0392b"
+
+[syntax]
+keyword = "#a9471d"
+function = "#2d5e8c"
+type = "#2c7a63"
+string = "#69791d"
+number = "#9d5900"
+comment = { color = "#b2a696", italic = true }
+macro = "#8a4b9a"
+attribute = "#9a8f80"
+punctuation = "#8c8174"
+variable = "#3a332b"

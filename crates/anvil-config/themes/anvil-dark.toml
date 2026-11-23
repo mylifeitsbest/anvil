@@ -1,0 +1,35 @@
+# Anvil Dark — тема по умолчанию. Скопируйте файл в папку themes/ и меняйте что угодно.
+name = "Anvil Dark"
+dark = true
+
+[base]
+bg = "#0f0f12"
+surface = "#0b0b0e"
+popup = "#17171c"
+border = "#ffffff10"
+text = "#e7e7eb"
+muted = "#8e8e9a"
+faint = "#55555f"
+accent = "#ff7a45"
+ok = "#4ad295"
+warn = "#f5c04a"
+err = "#ff5c5c"
+
+[syntax]
+keyword = "#f5a37a"
+function = "#8db4ff"
+type = "#7fd4c1"
+string = "#b6d98f"
+number = "#f1c77e"
+comment = { color = "#5a5a66", italic = true }
+macro = "#d2a6ff"
+attribute = "#80808c"
+punctuation = "#7a7a86"
+variable = "#dedee4"
+property = "#c9c9d6"
+builtin = { color = "#f5a37a", italic = true }
+label = "#d2a6ff"
+tag = "#f5a37a"
+escape = "#d2a6ff"
+heading = "#8db4ff"
+link = "#7fd4c1"

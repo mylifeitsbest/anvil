@@ -1,0 +1,28 @@
+# Чистый чёрный для OLED-экранов.
+name = "OLED"
+dark = true
+
+[base]
+bg = "#000000"
+surface = "#000000"
+popup = "#0e0e10"
+border = "#ffffff14"
+text = "#e8e8ec"
+muted = "#85858f"
+faint = "#4a4a52"
+accent = "#9b8cff"
+ok = "#4ad295"
+warn = "#f5c04a"
+err = "#ff5c5c"
+
+[syntax]
+keyword = "#b9aaff"
+function = "#7cc4ff"
+type = "#6fe0c8"
+string = "#a6dd8f"
+number = "#f3c27a"
+comment = { color = "#55555f", italic = true }
+macro = "#ff9ecf"
+attribute = "#7a7a86"
+punctuation = "#6c6c78"
+variable = "#e0e0e6"

@@ -1,0 +1,440 @@
+# Встроенные паки тулчейнов Anvil.
+#
+# Пак — это описание компилятора/интерпретатора: как его найти, как запустить
+# файл или проект и как установить. Свой пак = TOML-файл в папке packs/
+# настроек — никакого кода, ничего не грузится в память, пока не нужно.
+#
+# Подстановки в командах:
+#   {file} — путь к файлу   {dir} — его папка   {stem} — имя без расширения
+#   {out}  — путь к собранному бинарнику (во временной папке)
+#   {root} — корень проекта  {cmd} — найденная команда из detect.commands
+#
+# priority: чем больше, тем раньше выбирается пак для языка.
+
+[[pack]]
+id = "rust"
+name = "Rust (rustc / cargo)"
+languages = ["rust"]
+homepage = "https://www.rust-lang.org/tools/install"
+priority = 10
+detect = { commands = ["rustc", "cargo"], version = ["rustc", "--version"] }
+run = { build = "rustc --edition 2021 -O {file} -o {out}", run = "{out}" }
+project = { marker = "Cargo.toml", build = "cargo build", run = "cargo run" }
+install = { windows = "winget install -e --id Rustlang.Rustup", macos = "brew install rustup && rustup-init -y", linux = "curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y" }
+
+[[pack]]
+id = "gcc-c"
+name = "GCC (C)"
+languages = ["c"]
+homepage = "https://winlibs.com"
+priority = 10
+detect = { commands = ["gcc"], version = ["gcc", "--version"] }
+run = { build = "gcc {file} -O2 -Wall -o {out}", run = "{out}" }
+project = { marker = "Makefile", run = "make" }
+install = { windows = "winget install -e --id BrechtSanders.WinLibs.POSIX.UCRT", macos = "xcode-select --install", linux = "sudo apt install -y build-essential" }
+
+[[pack]]
+id = "clang-c"
+name = "Clang (C)"
+languages = ["c"]
+homepage = "https://releases.llvm.org"
+priority = 8
+detect = { commands = ["clang"], version = ["clang", "--version"] }
+run = { build = "clang {file} -O2 -Wall -o {out}", run = "{out}" }
+install = { windows = "winget install -e --id LLVM.LLVM", macos = "xcode-select --install", linux = "sudo apt install -y clang" }
+
+[[pack]]
+id = "msvc-c"
+name = "MSVC (C)"
+languages = ["c"]
+homepage = "https://visualstudio.microsoft.com/visual-cpp-build-tools/"
+priority = 5
+detect = { commands = ["cl"] }
+run = { build = "cl /nologo /O2 {file} /Fe:{out}", run = "{out}" }
+install = { windows = "winget install -e --id Microsoft.VisualStudio.2022.BuildTools" }
+
+[[pack]]
+id = "gcc-cpp"
+name = "GCC (C++)"
+languages = ["cpp"]
+homepage = "https://winlibs.com"
+priority = 10
+detect = { commands = ["g++"], version = ["g++", "--version"] }
+run = { build = "g++ {file} -std=c++23 -O2 -Wall -o {out}", run = "{out}" }
+project = { marker = "CMakeLists.txt", build = "cmake -S . -B build", run = "cmake --build build" }
+install = { windows = "winget install -e --id BrechtSanders.WinLibs.POSIX.UCRT", macos = "xcode-select --install", linux = "sudo apt install -y build-essential" }
+
+[[pack]]
+id = "clang-cpp"
+name = "Clang (C++)"
+languages = ["cpp"]
+homepage = "https://releases.llvm.org"
+priority = 8
+detect = { commands = ["clang++"], version = ["clang++", "--version"] }
+run = { build = "clang++ {file} -std=c++23 -O2 -Wall -o {out}", run = "{out}" }
+install = { windows = "winget install -e --id LLVM.LLVM", macos = "xcode-select --install", linux = "sudo apt install -y clang" }
+
+[[pack]]
+id = "msvc-cpp"
+name = "MSVC (C++)"
+languages = ["cpp"]
+homepage = "https://visualstudio.microsoft.com/visual-cpp-build-tools/"
+priority = 5
+detect = { commands = ["cl"] }
+run = { build = "cl /nologo /std:c++latest /EHsc /O2 {file} /Fe:{out}", run = "{out}" }
+install = { windows = "winget install -e --id Microsoft.VisualStudio.2022.BuildTools" }
+
+[[pack]]
+id = "go"
+name = "Go"
+languages = ["go"]
+homepage = "https://go.dev/dl/"
+priority = 10
+detect = { commands = ["go"], version = ["go", "version"] }
+run = { run = "go run {file}" }
+project = { marker = "go.mod", build = "go build ./...", run = "go run ." }
+install = { windows = "winget install -e --id GoLang.Go", macos = "brew install go", linux = "sudo apt install -y golang" }
+
+[[pack]]
+id = "python"
+name = "Python"
+languages = ["python"]
+homepage = "https://www.python.org/downloads/"
+priority = 10
+detect = { commands = ["py", "python3", "python"], version = ["{cmd}", "--version"] }
+run = { run = "{cmd} -u {file}" }
+install = { windows = "winget install -e --id Python.Python.3.13", macos = "brew install python", linux = "sudo apt install -y python3" }
+
+[[pack]]
+id = "node"
+name = "Node.js"
+languages = ["javascript"]
+homepage = "https://nodejs.org"
+priority = 10
+detect = { commands = ["node"], version = ["node", "--version"] }
+run = { run = "node {file}" }
+project = { marker = "package.json", run = "npm start" }
+install = { windows = "winget install -e --id OpenJS.NodeJS.LTS", macos = "brew install node", linux = "sudo apt install -y nodejs npm" }
+
+[[pack]]
+id = "bun"
+name = "Bun"
+languages = ["javascript", "typescript", "tsx"]
+homepage = "https://bun.sh"
+priority = 9
+detect = { commands = ["bun"], version = ["bun", "--version"] }
+run = { run = "bun {file}" }
+install = { windows = "winget install -e --id Oven-sh.Bun", macos = "brew install oven-sh/bun/bun", linux = "curl -fsSL https://bun.sh/install | bash" }
+
+[[pack]]
+id = "deno"
+name = "Deno"
+languages = ["typescript", "tsx", "javascript"]
+homepage = "https://deno.com"
+priority = 8
+detect = { commands = ["deno"], version = ["deno", "--version"] }
+run = { run = "deno run -A {file}" }
+install = { windows = "winget install -e --id DenoLand.Deno", macos = "brew install deno", linux = "curl -fsSL https://deno.land/install.sh | sh" }
+
+[[pack]]
+id = "tsx"
+name = "TypeScript через npx tsx"
+languages = ["typescript", "tsx"]
+homepage = "https://tsx.is"
+priority = 5
+detect = { commands = ["npx"] }
+run = { run = "npx -y tsx {file}" }
+install = { windows = "winget install -e --id OpenJS.NodeJS.LTS", macos = "brew install node", linux = "sudo apt install -y nodejs npm" }
+
+[[pack]]
+id = "java"
+name = "Java (JDK)"
+languages = ["java"]
+homepage = "https://adoptium.net"
+priority = 10
+detect = { commands = ["java"], version = ["java", "--version"] }
+run = { run = "java {file}" }
+project = { marker = "pom.xml", build = "mvn -q package", run = "mvn -q exec:java" }
+install = { windows = "winget install -e --id EclipseAdoptium.Temurin.21.JDK", macos = "brew install temurin", linux = "sudo apt install -y openjdk-21-jdk" }
+
+[[pack]]
+id = "kotlin"
+name = "Kotlin"
+languages = ["kotlin"]
+homepage = "https://kotlinlang.org/docs/command-line.html"
+priority = 10
+detect = { commands = ["kotlinc"], version = ["kotlinc", "-version"] }
+run = { build = "kotlinc {file} -include-runtime -d {out}.jar", run = "java -jar {out}.jar" }
+install = { windows = "scoop install kotlin", macos = "brew install kotlin", linux = "sdk install kotlin" }
+
+[[pack]]
+id = "dotnet"
+name = ".NET (C#)"
+languages = ["csharp"]
+homepage = "https://dotnet.microsoft.com/download"
+priority = 10
+detect = { commands = ["dotnet"], version = ["dotnet", "--version"] }
+run = { run = "dotnet run {file}" }
+project = { marker = "*.csproj", build = "dotnet build", run = "dotnet run" }
+install = { windows = "winget install -e --id Microsoft.DotNet.SDK.10", macos = "brew install dotnet", linux = "sudo apt install -y dotnet-sdk-10.0" }
+
+[[pack]]
+id = "fsharp"
+name = ".NET (F#)"
+languages = ["fsharp"]
+homepage = "https://dotnet.microsoft.com/download"
+priority = 10
+detect = { commands = ["dotnet"], version = ["dotnet", "--version"] }
+run = { run = "dotnet fsi {file}" }
+install = { windows = "winget install -e --id Microsoft.DotNet.SDK.10", macos = "brew install dotnet", linux = "sudo apt install -y dotnet-sdk-10.0" }
+
+[[pack]]
+id = "zig"
+name = "Zig"
+languages = ["zig", "c", "cpp"]
+homepage = "https://ziglang.org/download/"
+priority = 4
+detect = { commands = ["zig"], version = ["zig", "version"] }
+run = { run = "zig run {file}" }
+project = { marker = "build.zig", build = "zig build", run = "zig build run" }
+install = { windows = "winget install -e --id zig.zig", macos = "brew install zig", linux = "sudo snap install zig --classic --beta" }
+
+[[pack]]
+id = "swift"
+name = "Swift"
+languages = ["swift"]
+homepage = "https://www.swift.org/install/"
+priority = 10
+detect = { commands = ["swift"], version = ["swift", "--version"] }
+run = { run = "swift {file}" }
+project = { marker = "Package.swift", build = "swift build", run = "swift run" }
+install = { windows = "winget install -e --id Swift.Toolchain", macos = "xcode-select --install", linux = "curl -O https://download.swift.org/swiftly/linux/swiftly-$(uname -m).tar.gz" }
+
+[[pack]]
+id = "dart"
+name = "Dart"
+languages = ["dart"]
+homepage = "https://dart.dev/get-dart"
+priority = 10
+detect = { commands = ["dart"], version = ["dart", "--version"] }
+run = { run = "dart run {file}" }
+install = { windows = "winget install -e --id Google.DartSDK", macos = "brew install dart-sdk", linux = "sudo apt install -y dart" }
+
+[[pack]]
+id = "scala"
+name = "Scala (scala-cli)"
+languages = ["scala"]
+homepage = "https://scala-cli.virtuslab.org"
+priority = 10
+detect = { commands = ["scala-cli", "scala"] }
+run = { run = "{cmd} run {file}" }
+install = { windows = "winget install -e --id VirtusLab.ScalaCLI", macos = "brew install Virtuslab/scala-cli/scala-cli", linux = "curl -sSLf https://scala-cli.virtuslab.org/get | sh" }
+
+[[pack]]
+id = "dmd"
+name = "D (DMD)"
+languages = ["d"]
+homepage = "https://dlang.org/download.html"
+priority = 10
+detect = { commands = ["dmd", "ldc2"], version = ["{cmd}", "--version"] }
+run = { run = "{cmd} -run {file}" }
+install = { windows = "winget install -e --id Dlang.DMD", macos = "brew install dmd", linux = "curl -fsS https://dlang.org/install.sh | bash -s dmd" }
+
+[[pack]]
+id = "nim"
+name = "Nim"
+languages = ["nim"]
+homepage = "https://nim-lang.org/install.html"
+priority = 10
+detect = { commands = ["nim"], version = ["nim", "--version"] }
+run = { run = "nim c -r --hints:off --outdir:{dir} {file}" }
+install = { windows = "winget install -e --id nim.nim", macos = "brew install nim", linux = "curl https://nim-lang.org/choosenim/init.sh -sSf | sh" }
+
+[[pack]]
+id = "crystal"
+name = "Crystal"
+languages = ["crystal"]
+homepage = "https://crystal-lang.org/install/"
+priority = 10
+detect = { commands = ["crystal"], version = ["crystal", "--version"] }
+run = { run = "crystal run {file}" }
+install = { windows = "winget install -e --id CrystalLang.Crystal", macos = "brew install crystal", linux = "curl -fsSL https://crystal-lang.org/install.sh | sudo bash" }
+
+[[pack]]
+id = "ruby"
+name = "Ruby"
+languages = ["ruby"]
+homepage = "https://www.ruby-lang.org/en/downloads/"
+priority = 10
+detect = { commands = ["ruby"], version = ["ruby", "--version"] }
+run = { run = "ruby {file}" }
+install = { windows = "winget install -e --id RubyInstallerTeam.RubyWithDevKit.3.4", macos = "brew install ruby", linux = "sudo apt install -y ruby" }
+
+[[pack]]
+id = "php"
+name = "PHP"
+languages = ["php"]
+homepage = "https://www.php.net/downloads"
+priority = 10
+detect = { commands = ["php"], version = ["php", "--version"] }
+run = { run = "php {file}" }
+install = { windows = "winget install -e --id PHP.PHP.8.4", macos = "brew install php", linux = "sudo apt install -y php-cli" }
+
+[[pack]]
+id = "perl"
+name = "Perl"
+languages = ["perl"]
+homepage = "https://strawberryperl.com"
+priority = 10
+detect = { commands = ["perl"], version = ["perl", "--version"] }
+run = { run = "perl {file}" }
+install = { windows = "winget install -e --id StrawberryPerl.StrawberryPerl", macos = "brew install perl", linux = "sudo apt install -y perl" }
+
+[[pack]]
+id = "lua"
+name = "Lua"
+languages = ["lua"]
+homepage = "https://www.lua.org/download.html"
+priority = 10
+detect = { commands = ["lua", "lua54", "luajit"], version = ["{cmd}", "-v"] }
+run = { run = "{cmd} {file}" }
+install = { windows = "winget install -e --id DEVCOM.Lua", macos = "brew install lua", linux = "sudo apt install -y lua5.4" }
+
+[[pack]]
+id = "haskell"
+name = "Haskell (GHC / Stack)"
+languages = ["haskell"]
+homepage = "https://www.haskell.org/ghcup/"
+priority = 10
+detect = { commands = ["runghc", "stack"] }
+run = { run = "{cmd} {file}" }
+install = { windows = "winget install -e --id commercialhaskell.stack", macos = "brew install ghc", linux = "curl --proto =https --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh" }
+
+[[pack]]
+id = "ocaml"
+name = "OCaml"
+languages = ["ocaml"]
+homepage = "https://ocaml.org/install"
+priority = 10
+detect = { commands = ["ocaml"], version = ["ocaml", "-version"] }
+run = { run = "ocaml {file}" }
+install = { windows = "winget install -e --id Diskuv.OCaml", macos = "brew install ocaml", linux = "sudo apt install -y ocaml" }
+
+[[pack]]
+id = "elixir"
+name = "Elixir"
+languages = ["elixir"]
+homepage = "https://elixir-lang.org/install.html"
+priority = 10
+detect = { commands = ["elixir"], version = ["elixir", "--version"] }
+run = { run = "elixir {file}" }
+install = { windows = "winget install -e --id Elixir.Elixir", macos = "brew install elixir", linux = "sudo apt install -y elixir" }
+
+[[pack]]
+id = "erlang"
+name = "Erlang"
+languages = ["erlang"]
+homepage = "https://www.erlang.org/downloads"
+priority = 10
+detect = { commands = ["escript"] }
+run = { run = "escript {file}" }
+install = { windows = "winget install -e --id Erlang.ErlangOTP", macos = "brew install erlang", linux = "sudo apt install -y erlang" }
+
+[[pack]]
+id = "julia"
+name = "Julia"
+languages = ["julia"]
+homepage = "https://julialang.org/downloads/"
+priority = 10
+detect = { commands = ["julia"], version = ["julia", "--version"] }
+run = { run = "julia {file}" }
+install = { windows = "winget install -e --id Julialang.Julia", macos = "brew install julia", linux = "curl -fsSL https://install.julialang.org | sh" }
+
+[[pack]]
+id = "r"
+name = "R"
+languages = ["r"]
+homepage = "https://cran.r-project.org"
+priority = 10
+detect = { commands = ["Rscript"] }
+run = { run = "Rscript {file}" }
+install = { windows = "winget install -e --id RProject.R", macos = "brew install r", linux = "sudo apt install -y r-base" }
+
+[[pack]]
+id = "gfortran"
+name = "GNU Fortran"
+languages = ["fortran"]
+homepage = "https://winlibs.com"
+priority = 10
+detect = { commands = ["gfortran"], version = ["gfortran", "--version"] }
+run = { build = "gfortran {file} -O2 -o {out}", run = "{out}" }
+install = { windows = "winget install -e --id BrechtSanders.WinLibs.POSIX.UCRT", macos = "brew install gcc", linux = "sudo apt install -y gfortran" }
+
+[[pack]]
+id = "fpc"
+name = "Free Pascal"
+languages = ["pascal"]
+homepage = "https://www.freepascal.org/download.html"
+priority = 10
+detect = { commands = ["fpc"], version = ["fpc", "-iV"] }
+run = { build = "fpc -O2 -o{out} {file}", run = "{out}" }
+install = { windows = "winget install -e --id FreePascal.FreePascalCompiler", macos = "brew install fpc", linux = "sudo apt install -y fpc" }
+
+[[pack]]
+id = "bash"
+name = "Bash"
+languages = ["shell"]
+homepage = "https://git-scm.com/downloads"
+priority = 10
+detect = { commands = ["bash"] }
+run = { run = "bash {file}" }
+install = { windows = "winget install -e --id Git.Git", macos = "brew install bash", linux = "sudo apt install -y bash" }
+
+[[pack]]
+id = "powershell"
+name = "PowerShell"
+languages = ["powershell"]
+homepage = "https://aka.ms/powershell"
+priority = 10
+detect = { commands = ["pwsh", "powershell"] }
+run = { run = "{cmd} -NoProfile -ExecutionPolicy Bypass -File {file}" }
+install = { windows = "winget install -e --id Microsoft.PowerShell", macos = "brew install powershell", linux = "sudo snap install powershell --classic" }
+
+[[pack]]
+id = "cmd"
+name = "Командная строка Windows"
+languages = ["batch"]
+homepage = "https://learn.microsoft.com/windows-server/administration/windows-commands/cmd"
+priority = 10
+detect = { commands = ["cmd"] }
+run = { run = "cmd /C {file}" }
+
+[[pack]]
+id = "make"
+name = "Make"
+languages = ["make"]
+homepage = "https://www.gnu.org/software/make/"
+priority = 10
+detect = { commands = ["make", "mingw32-make"] }
+run = { run = "{cmd} -f {file}" }
+install = { windows = "winget install -e --id ezwinports.make", macos = "xcode-select --install", linux = "sudo apt install -y make" }
+
+[[pack]]
+id = "cmake"
+name = "CMake"
+languages = ["cmake"]
+homepage = "https://cmake.org/download/"
+priority = 10
+detect = { commands = ["cmake"], version = ["cmake", "--version"] }
+run = { build = "cmake -S {dir} -B {dir}/build", run = "cmake --build {dir}/build" }
+install = { windows = "winget install -e --id Kitware.CMake", macos = "brew install cmake", linux = "sudo apt install -y cmake" }
+
+[[pack]]
+id = "nasm"
+name = "NASM (сборка в .obj)"
+languages = ["asm"]
+homepage = "https://www.nasm.us"
+priority = 10
+detect = { commands = ["nasm"], version = ["nasm", "-v"] }
+run = { run = "nasm -f win64 {file} -o {out}.obj" }
+install = { windows = "winget install -e --id NASM.NASM", macos = "brew install nasm", linux = "sudo apt install -y nasm" }

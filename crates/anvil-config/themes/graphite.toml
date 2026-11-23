@@ -1,0 +1,28 @@
+# Монохромная тема: цвет есть только у акцента.
+name = "Graphite"
+dark = true
+
+[base]
+bg = "#121212"
+surface = "#0d0d0d"
+popup = "#1b1b1b"
+border = "#ffffff12"
+text = "#ededed"
+muted = "#8f8f8f"
+faint = "#565656"
+accent = "#d9d9d9"
+ok = "#9be29b"
+warn = "#e6c97a"
+err = "#ff7b7b"
+
+[syntax]
+keyword = "#ffffff"
+function = "#cfcfcf"
+type = "#b8b8b8"
+string = "#9b9b9b"
+number = "#d9d9d9"
+comment = { color = "#585858", italic = true }
+macro = "#e6e6e6"
+attribute = "#707070"
+punctuation = "#6f6f6f"
+variable = "#d4d4d4"

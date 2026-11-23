@@ -1,0 +1,28 @@
+name = "Midnight"
+dark = true
+
+[base]
+bg = "#0d1119"
+surface = "#0a0d14"
+popup = "#141a26"
+border = "#a9bcff14"
+text = "#e1e7f5"
+muted = "#8390ab"
+faint = "#4a5571"
+accent = "#7c9cff"
+ok = "#5ad7a0"
+warn = "#f9c66a"
+err = "#ff6b81"
+
+[syntax]
+keyword = "#c4a7ff"
+function = "#82c8ff"
+type = "#72e2d1"
+string = "#a8e2a0"
+number = "#f9b588"
+comment = { color = "#4c5774", italic = true }
+macro = "#f4a4c8"
+attribute = "#6e7894"
+punctuation = "#6e7894"
+variable = "#d6ddef"
+builtin = { color = "#c4a7ff", italic = true }

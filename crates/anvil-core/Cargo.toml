@@ -1,0 +1,23 @@
+[package]
+name = "anvil-core"
+description = "Ядро редактора Anvil: rope-буфер, дерево истории, мультикурсоры, поиск"
+version.workspace = true
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ropey.workspace = true
+regex.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "buffer"
+harness = false
+
+[lints]
+workspace = true

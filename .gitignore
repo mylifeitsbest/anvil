@@ -1,0 +1,10 @@
+/target
+/dist
+*.bmp
+*.pdb
+.claude/
+.anvil-config/
+mockup/.frames/
+mockup/scripts/node_modules/
+.DS_Store
+Thumbs.db
