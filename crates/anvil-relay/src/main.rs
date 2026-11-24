@@ -1,7 +1,7 @@
 //! `anvil-relay` — сервер для совместной работы в Anvil через интернет.
 //!
-//! Запустите на машине с публичным адресом (VDS) и вставьте напечатанный адрес
-//! в `settings.toml` хозяина сессии (`[collab] relay = "…"`).
+//! Запустите на машине с публичным адресом (VDS) и вставьте напечатанный адрес в Anvil
+//! хозяина сессии: команда «Совместная работа: свой relay-сервер…» (или `[collab] relay = "…"`).
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -95,7 +95,8 @@ fn run() -> Result<(), String> {
     println!("Отпечаток TLS: {}", anvil_collab::tls::fp_hex(&relay.fingerprint()));
     println!("Данные: {}", dir.display());
     println!();
-    println!("Адрес для Anvil — вставьте в settings.toml хозяина сессии:");
+    println!("Адрес для Anvil — у хозяина сессии: палитра команд → «Совместная работа: свой relay-сервер…»,");
+    println!("вставьте строку relay ниже (или весь блок — в settings.toml):");
     println!();
     println!("[collab]");
     println!("relay = \"{}\"", addr.link());

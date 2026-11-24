@@ -1154,6 +1154,7 @@ impl AnvilApp {
             }
             Cmd::CollabShare => self.collab_share(),
             Cmd::CollabJoin => self.open_palette(PalMode::Join),
+            Cmd::CollabRelay => self.open_palette(PalMode::Relay),
             Cmd::CollabSession => {
                 if self.collab.session.is_some() {
                     self.open_palette(PalMode::Session);

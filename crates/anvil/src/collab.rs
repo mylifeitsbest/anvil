@@ -125,6 +125,23 @@ pub fn color32(rgb: u32) -> Color32 {
     Color32::from_rgb((rgb >> 16) as u8, (rgb >> 8) as u8, rgb as u8)
 }
 
+/// Адрес relay из того, что вставил пользователь: ссылка `anvil://хост:порт?fp=…&key=…`,
+/// строка `relay = "…"` или весь блок `[collab]`, который печатает anvil-relay при запуске.
+pub fn relay_from_input(s: &str) -> Result<RelayAddr, String> {
+    let s = s.trim();
+    let s = match s.find("anvil://") {
+        Some(i) => s[i..].split(|c: char| c == '"' || c == '\'' || c.is_whitespace()).next().unwrap_or_default(),
+        None => s.strip_prefix("relay").and_then(|r| r.trim_start().strip_prefix('=')).map(str::trim).unwrap_or(s),
+    };
+    if s.is_empty() {
+        return Err("пустой адрес".into());
+    }
+    if Invite::parse(s).is_ok() {
+        return Err("это ссылка-приглашение, а нужен адрес relay-сервера".into());
+    }
+    RelayAddr::parse(s)
+}
+
 pub fn my_name(cs: &CollabSettings) -> String {
     let n = cs.name.trim();
     if !n.is_empty() {
@@ -260,6 +277,33 @@ impl AnvilApp {
         let client = Client::start(connect.0, connect.1, connect.2, Hello { name, color, auth: Auth::Host { key } }, self.wake.clone());
         self.collab.session = Some(Session::new(client, relay, true, link, label));
         self.status("Открываю сессию…");
+    }
+
+    /// «Свой relay-сервер…»: записать адрес в `[collab] relay` settings.toml.
+    pub fn collab_set_relay(&mut self, input: &str) {
+        let a = match relay_from_input(input) {
+            Ok(a) => a,
+            Err(e) => {
+                self.toast(format!("Адрес relay не подходит: {e}"), ToastKind::Error);
+                return;
+            }
+        };
+        let link = a.link();
+        self.set_setting(&["collab", "relay"], Some(toml_edit::Value::from(link.as_str())));
+        if self.settings.collab.relay.trim() != link {
+            self.toast("Relay записан, но не применился — проверьте settings.toml и .anvil/settings.toml проекта", ToastKind::Warn);
+            return;
+        }
+        let later = if self.collab.session.is_some() { " (для следующих сессий)" } else { "" };
+        self.toast(format!("Relay {}:{} сохранён — «Поделиться» теперь идёт через него{later}", a.host, a.port), ToastKind::Ok);
+    }
+
+    /// Вернуть встроенный relay (только локальная сеть).
+    pub fn collab_reset_relay(&mut self) {
+        self.set_setting(&["collab", "relay"], Some(toml_edit::Value::from("")));
+        if self.settings.collab.relay.trim().is_empty() {
+            self.toast("Снова встроенный relay — сессии только в локальной сети", ToastKind::Ok);
+        }
     }
 
     /// Войти в чужую сессию по ссылке-приглашению.
@@ -802,5 +846,44 @@ impl AnvilApp {
             self.ctx.request_repaint_after(Duration::from_secs_f32(w + 0.01));
         }
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const FP: &str = "abababababababababababababababababababababababababababababababab";
+
+    #[test]
+    fn relay_input_forms() -> Result<(), String> {
+        let link = format!("anvil://203.0.113.7:7878?fp={FP}&key=00112233445566778899aabbccddeeff");
+        let want = RelayAddr::parse(&link)?;
+        assert_eq!(want.host, "203.0.113.7");
+        assert_eq!(want.key, "00112233445566778899aabbccddeeff");
+        // как есть, строкой из settings.toml, всем блоком из вывода anvil-relay (с переводами строк и без)
+        for s in [
+            link.clone(),
+            format!("  {link}  "),
+            format!("relay = \"{link}\""),
+            format!("[collab]\nrelay = \"{link}\"\n"),
+            format!("[collab]relay = \"{link}\""),
+        ] {
+            assert_eq!(relay_from_input(&s)?, want, "{s:?}");
+        }
+        // без схемы — тоже адрес
+        assert_eq!(relay_from_input(&format!("relay = 203.0.113.7:7878?fp={FP}&key=00112233445566778899aabbccddeeff"))?, want);
+        // хост, который начинается с «relay», не ломается
+        assert_eq!(relay_from_input(&format!("relay.example.com:443?fp={FP}"))?.host, "relay.example.com");
+        Ok(())
+    }
+
+    #[test]
+    fn relay_input_rejects_invites_and_garbage() {
+        let invite = format!("anvil://192.168.1.5:7878/0123456789abcdef0123456789abcdef?fp={FP}");
+        assert!(relay_from_input(&invite).is_err_and(|e| e.contains("приглашение")));
+        assert!(relay_from_input("").is_err());
+        assert!(relay_from_input("relay = \"\"").is_err());
+        assert!(relay_from_input("anvil://host:7878").is_err_and(|e| e.contains("fp")));
     }
 }

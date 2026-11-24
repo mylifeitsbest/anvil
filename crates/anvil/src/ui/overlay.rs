@@ -36,6 +36,8 @@ pub enum PalMode {
     Join,
     /// Совместная работа: участники, приглашения, файлы сессии.
     Session,
+    /// Совместная работа: адрес своего relay-сервера.
+    Relay,
 }
 
 impl PalMode {
@@ -51,6 +53,7 @@ impl PalMode {
             PalMode::Locations { .. } => 7,
             PalMode::Join => 8,
             PalMode::Session => 9,
+            PalMode::Relay => 10,
         }
     }
 }
@@ -78,6 +81,8 @@ pub enum CollabAct {
     Peer(u32),
     Open(u64),
     Leave,
+    SetRelay,
+    ResetRelay,
 }
 
 #[derive(Clone, Debug)]
@@ -353,6 +358,42 @@ impl AnvilApp {
                 };
                 items.push((0, item(label, detail, "Enter".into(), action)));
             }
+            PalMode::Relay => {
+                let q = q.trim();
+                if q.is_empty() {
+                    let cur = self.settings.collab.relay.trim().to_string();
+                    let (label, detail) = if cur.is_empty() {
+                        ("Вставьте адрес из вывода anvil-relay (Ctrl+V)".to_string(), "сейчас встроенный relay".to_string())
+                    } else {
+                        match anvil_collab::RelayAddr::parse(&cur) {
+                            Ok(a) => (format!("Сейчас: relay {}:{}", a.host, a.port), "вставьте новый адрес, чтобы заменить".to_string()),
+                            Err(e) => (format!("В настройках неверный адрес relay: {e}"), "вставьте правильный адрес".to_string()),
+                        }
+                    };
+                    items.push((0, item(label, detail, String::new(), PalAction::None)));
+                    if !cur.is_empty() {
+                        items.push((
+                            0,
+                            item(
+                                "Вернуть встроенный relay".into(),
+                                "сессии только в локальной сети".into(),
+                                String::new(),
+                                PalAction::Collab(CollabAct::ResetRelay),
+                            ),
+                        ));
+                    }
+                } else {
+                    let it = match crate::collab::relay_from_input(q) {
+                        Ok(a) => {
+                            let detail =
+                                if a.key.is_empty() { "без ключа: сессию откроет любой" } else { "с ключом доступа" };
+                            item(format!("Использовать relay {}:{}", a.host, a.port), detail.into(), "Enter".into(), PalAction::Collab(CollabAct::SetRelay))
+                        }
+                        Err(e) => item(format!("Адрес не подходит: {e}"), "нужно anvil://хост:порт?fp=…&key=…".into(), String::new(), PalAction::None),
+                    };
+                    items.push((0, it));
+                }
+            }
             PalMode::Session => {
                 if let Some(sess) = &self.collab.session {
                     let live = sess.phase == crate::collab::Phase::Live;
@@ -452,7 +493,7 @@ impl AnvilApp {
             }
         }
         let keep_order = (matches!(mode, PalMode::Themes { .. } | PalMode::Accent { .. } | PalMode::Pick(_)) && q.is_empty())
-            || matches!(mode, PalMode::Rename { .. } | PalMode::Join | PalMode::Session);
+            || matches!(mode, PalMode::Rename { .. } | PalMode::Join | PalMode::Session | PalMode::Relay);
         if !keep_order {
             items.sort_by_key(|x| std::cmp::Reverse(x.0));
         }
@@ -543,6 +584,11 @@ impl AnvilApp {
                 CollabAct::Peer(id) => self.collab_goto_peer(id),
                 CollabAct::Open(id) => self.collab_open_doc(id),
                 CollabAct::Leave => self.collab_end(None),
+                CollabAct::SetRelay => {
+                    let input = self.palette.as_ref().map(|p| p.input.text.clone()).unwrap_or_default();
+                    self.collab_set_relay(&input);
+                }
+                CollabAct::ResetRelay => self.collab_reset_relay(),
             },
             PalAction::None => {}
         }
@@ -647,6 +693,7 @@ impl AnvilApp {
             PalMode::Locations { title } => (Icon::Search, Some(title.as_str()), "Фильтр по файлу или тексту"),
             PalMode::Join => (Icon::Users, Some("Войти"), "anvil://хост:порт/токен?fp=…"),
             PalMode::Session => (Icon::Users, Some("Сессия"), "Участники, приглашения, файлы"),
+            PalMode::Relay => (Icon::Users, Some("Relay"), "anvil://хост:порт?fp=…&key=…"),
         };
         icon(&pp, Rect::from_min_size(pos2(input_r.left() + 16.0, input_r.center().y - 8.0), vec2(16.0, 16.0)), ic, with_alpha(c.text_faint, k), 1.4);
         let mut tx = input_r.left() + 42.0;
@@ -662,12 +709,17 @@ impl AnvilApp {
         if closing.is_none() {
             ui.ctx().request_repaint_after(std::time::Duration::from_millis(60));
         }
+        // текст ввода гаснет вместе с палитрой
+        let mut ic_ = c.clone();
+        ic_.text = with_alpha(c.text, k);
+        ic_.text_faint = with_alpha(c.text_faint, k);
+        ic_.selection = with_alpha(c.selection, k);
         pal.input.paint(
             ui.ctx(),
             &pp,
             Rect::from_min_max(pos2(tx, input_r.top()), pos2(input_r.right() - 16.0, input_r.bottom())),
             &self.ui_font(14.0),
-            &c,
+            &ic_,
             true,
             placeholder,
             caret_a * k,
