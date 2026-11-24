@@ -49,7 +49,7 @@ fn parse_args() -> Result<Args, String> {
                     "Anvil {}\n\nanvil [ПАПКА | ФАЙЛ...]\n\n  --screenshot ФАЙЛ.bmp  снимок окна и выход\n  --frames N             через сколько кадров снимать (по умолчанию 40)\n  --run команда,команда  выполнить команды после запуска
   --run-at N             на каком кадре выполнить --run (по умолчанию 4)
   --goto СТРОКА:КОЛОНКА  поставить курсор
-  --script ФАЙЛ          сценарий: строки «at КАДР goto|type|run|shot|quit …»\n  --version              версия",
+  --script ФАЙЛ          сценарий: строки «at КАДР goto|type|key|run|shot|quit …»\n  --version              версия",
                     env!("CARGO_PKG_VERSION")
                 );
                 std::process::exit(0);

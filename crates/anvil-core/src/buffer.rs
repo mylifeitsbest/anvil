@@ -113,6 +113,9 @@ impl Buffer {
     }
 
     pub fn mark_saved(&mut self) {
+        // следующий ввод не должен склеиться с сохранённым шагом — иначе файл будет
+        // выглядеть сохранённым, хотя уже изменён
+        self.history.seal();
         self.saved_at = self.history.position();
     }
 

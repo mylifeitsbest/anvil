@@ -79,10 +79,6 @@ impl AnvilApp {
         let c = self.colors.clone();
         let ctx = ui.ctx().clone();
         let focused = self.focus == Focus::Editor;
-        {
-            let (docs, hl) = (&mut self.docs, &mut self.hl);
-            docs[idx].ensure_highlight(hl, true);
-        }
 
         // ---------------------------------------------------------------- метрики
         let fs = s.editor.font_size.clamp(6.0, 72.0);
@@ -324,6 +320,15 @@ impl AnvilApp {
             self.after_typing(doc_id, typed, deleted, navigated);
         }
 
+        // Ввод выше мог изменить текст: число строк, предел прокрутки и подсветку берём
+        // заново, иначе после удаления строки отрисовка полезет в строку, которой уже нет.
+        {
+            let (docs, hl) = (&mut self.docs, &mut self.hl);
+            docs[idx].ensure_highlight(hl, true);
+        }
+        let total = self.docs[idx].ed.rope().len_lines().max(1);
+        let max_y = ((total as f32) * line_h + beyond + s.editor.padding_top - view_h).max(0.0);
+
         // ---------------------------------------------------------------- прокрутка к курсору и анимации
         let doc = &mut self.docs[idx];
         let rope = doc.ed.rope().clone();
@@ -355,7 +360,8 @@ impl AnvilApp {
         doc.view.scroll_y = doc.view.scroll_y.clamp(0.0, max_y);
         let tau =
             if s.animations.smooth_scroll && anim_on { s.animations.scroll_smoothing_ms as f32 / 1000.0 / 3.0 / s.animations.speed.max(0.05) } else { 0.0 };
-        doc.view.disp_y = smooth_towards(doc.view.disp_y, doc.view.scroll_y, dt, tau);
+        // после удаления большого куска плавная прокрутка не должна стартовать из-за конца текста
+        doc.view.disp_y = smooth_towards(doc.view.disp_y.min(max_y), doc.view.scroll_y, dt, tau);
         doc.view.disp_x = smooth_towards(doc.view.disp_x, doc.view.scroll_x, dt, tau);
         if doc.view.disp_y != doc.view.scroll_y || doc.view.disp_x != doc.view.scroll_x {
             self.tw.active = true;
@@ -477,7 +483,7 @@ impl AnvilApp {
         // ---------------------------------------------------------------- отрисовка
         let p = ui.painter().with_clip_rect(rect);
         let tp = ui.painter().with_clip_rect(Rect::from_min_max(pos2(gutter_right + 4.0, rect.top()), pos2(rect.right() - mm_w, rect.bottom())));
-        let first = ((disp_y - s.editor.padding_top) / line_h).floor().max(0.0) as usize;
+        let first = (((disp_y - s.editor.padding_top) / line_h).floor().max(0.0) as usize).min(total - 1);
         let last = (first + view_lines + 2).min(total);
         let line_y = |l: usize| oy + l as f32 * line_h;
         let diags = if s.lsp.enabled { self.doc_diags(doc_id) } else { Vec::new() };

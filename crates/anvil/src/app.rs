@@ -184,6 +184,8 @@ pub struct AnvilApp {
     pub(crate) problems_scroll: f32,
     pub(crate) collab: crate::collab::Collab,
     pub(crate) update: crate::update::Updater,
+    /// Нажатия клавиш из сценария `--script` — уходят в следующий кадр как настоящие.
+    script_keys: Vec<Event>,
 }
 
 fn opener(path: &Path) {
@@ -310,6 +312,7 @@ impl AnvilApp {
             next_id: 1,
             untitled_n: 0,
             particles: Vec::new(),
+            script_keys: Vec::new(),
             shake: (-10.0, 0.0),
             tree_scroll: 0.0,
             tree_disp: 0.0,
@@ -1364,6 +1367,12 @@ impl AnvilApp {
     }
 
     pub fn find_step(&mut self, forward: bool) {
+        // после правок (например, «заменить») старые совпадения указывают мимо текста
+        if self.find.open
+            && let Some(idx) = self.active
+        {
+            self.refresh_find_matches(idx);
+        }
         let Some(d) = self.doc_mut() else { return };
         let m = &d.view.find_matches;
         if m.is_empty() {
@@ -1403,7 +1412,8 @@ impl AnvilApp {
         let theme_moving = self.theme.tick(self.now);
         self.colors = Colors::new(&self.theme.current, &self.settings);
 
-        let events = ctx.input(|i| i.events.clone());
+        let mut events = ctx.input(|i| i.events.clone());
+        events.append(&mut self.script_keys);
         let rest = self.handle_keys(events);
 
         // запуск: лёгкое проявление и подъём
@@ -1604,6 +1614,26 @@ impl AnvilApp {
                 }
             }
             "join" => self.collab_join(rest.trim()),
+            // нажатие клавиши: «key Backspace», «key ctrl+shift+K»
+            "key" => {
+                let mut modifiers = egui::Modifiers::NONE;
+                let mut key = None;
+                for part in rest.trim().split('+') {
+                    match part.to_ascii_lowercase().as_str() {
+                        "ctrl" => {
+                            modifiers.ctrl = true;
+                            modifiers.command = true;
+                        }
+                        "shift" => modifiers.shift = true,
+                        "alt" => modifiers.alt = true,
+                        _ => key = egui::Key::from_name(part),
+                    }
+                }
+                match key {
+                    Some(key) => self.script_keys.push(Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers }),
+                    None => self.toast(format!("--script: неизвестная клавиша {rest}"), ToastKind::Warn),
+                }
+            }
             // плашка обновления: раскрыть / свернуть «Что нового»
             "update-notes" => self.update.notes = !self.update.notes,
             "update-hide" => self.update.hidden = !self.update.hidden,

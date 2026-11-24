@@ -775,6 +775,30 @@ impl AnvilApp {
 
     // ------------------------------------------------------------------ поиск
 
+    /// Пересчитать совпадения поиска, если текст, запрос или параметры изменились.
+    /// Возвращает `true`, если список обновился.
+    pub(crate) fn refresh_find_matches(&mut self, idx: usize) -> bool {
+        let Some(d) = self.docs.get(idx) else { return false };
+        let key = format!("{}:{}:{:?}:{}", d.id, d.ed.buffer.version, self.find.opts, self.find.query.text);
+        if d.view.find_key == key {
+            return false;
+        }
+        let res = search::find_all(d.ed.rope(), &self.find.query.text, self.find.opts, 100_000);
+        let d = &mut self.docs[idx];
+        d.view.find_key = key;
+        match res {
+            Ok(m) => {
+                d.view.find_matches = m;
+                self.find.error = None;
+            }
+            Err(e) => {
+                d.view.find_matches.clear();
+                self.find.error = Some(e.to_string().lines().last().unwrap_or("ошибка regex").to_string());
+            }
+        }
+        true
+    }
+
     pub(crate) fn draw_find(&mut self, ui: &mut egui::Ui, area: Rect, events: &[Event]) {
         let Some(idx) = self.active else { return };
         if !self.find.open {
@@ -819,24 +843,8 @@ impl AnvilApp {
             }
         }
         // пересчитать совпадения
-        let key = {
-            let d = &self.docs[idx];
-            format!("{}:{}:{:?}:{}", d.id, d.ed.buffer.version, self.find.opts, self.find.query.text)
-        };
-        if self.docs[idx].view.find_key != key {
-            let res = search::find_all(self.docs[idx].ed.rope(), &self.find.query.text, self.find.opts, 100_000);
+        if self.refresh_find_matches(idx) {
             let d = &mut self.docs[idx];
-            d.view.find_key = key;
-            match res {
-                Ok(m) => {
-                    d.view.find_matches = m;
-                    self.find.error = None;
-                }
-                Err(e) => {
-                    d.view.find_matches.clear();
-                    self.find.error = Some(e.to_string().lines().last().unwrap_or("ошибка regex").to_string());
-                }
-            }
             if jump {
                 let head = d.ed.sel.primary().start();
                 if let Some((i, &(a, b))) =

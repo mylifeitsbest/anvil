@@ -1011,6 +1011,20 @@ mod tests {
     }
 
     #[test]
+    fn typing_right_after_save_marks_dirty() {
+        let mut e = ed("", 0);
+        type_str(&mut e, "a");
+        e.buffer.mark_saved();
+        assert!(!e.buffer.is_dirty());
+        type_str(&mut e, "b");
+        assert!(e.buffer.is_dirty());
+        // отмена возвращает ровно к сохранённому, а не стирает и то, что было до сохранения
+        assert!(e.undo());
+        assert_eq!(e.text(), "a");
+        assert!(!e.buffer.is_dirty());
+    }
+
+    #[test]
     fn move_and_duplicate_lines() {
         let mut e = ed("one\ntwo\nthree", 5);
         e.move_lines(true);
