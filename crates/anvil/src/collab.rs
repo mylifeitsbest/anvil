@@ -240,7 +240,7 @@ impl AnvilApp {
             } else if ip.is_loopback() {
                 ip.to_string()
             } else {
-                anvil_collab::local_ip().map(|i| i.to_string()).unwrap_or_else(|| "127.0.0.1".into())
+                anvil_collab::lan_ip().map(|i| i.to_string()).unwrap_or_else(|| "127.0.0.1".into())
             };
             let label = if ip.is_loopback() {
                 "встроенный relay · этот компьютер"
@@ -384,11 +384,12 @@ impl AnvilApp {
                     if copy {
                         self.ctx.copy_text(edit);
                     }
+                    let via = s.relay_label.clone();
                     self.toast(
                         if copy {
-                            "Сессия открыта · ссылка для редактирования скопирована"
+                            format!("Сессия открыта ({via}) · ссылка для редактирования скопирована")
                         } else {
-                            "Сессия открыта — пригласите участников"
+                            format!("Сессия открыта ({via}) — пригласите участников")
                         },
                         ToastKind::Ok,
                     );

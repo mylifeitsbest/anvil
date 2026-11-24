@@ -73,11 +73,14 @@ russian.AddPath=Добавить anvil в PATH (запуск «anvil .» из т
 english.AddPath=Add anvil to PATH (run "anvil ." from a terminal)
 russian.OpenIn=Открыть в Anvil
 english.OpenIn=Open in Anvil
+russian.Links=Открывать ссылки-приглашения anvil:// (совместная работа)
+english.Links=Open anvil:// invite links (collaboration)
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 Name: "contextmenu"; Description: "{cm:FolderMenu}"; GroupDescription: "{cm:Integration}"
 Name: "addtopath"; Description: "{cm:AddPath}"; GroupDescription: "{cm:Integration}"; Flags: unchecked
+Name: "links"; Description: "{cm:Links}"; GroupDescription: "{cm:Integration}"
 
 [Files]
 Source: "{#SourceExe}"; DestDir: "{app}"; DestName: "{#AppExe}"; Flags: ignoreversion
@@ -99,6 +102,11 @@ Root: HKA; Subkey: "Software\Classes\Directory\Background\shell\Anvil\command"; 
 Root: HKA; Subkey: "Software\Classes\*\shell\Anvil"; ValueType: string; ValueName: ""; ValueData: "{cm:OpenIn}"; Tasks: contextmenu; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\*\shell\Anvil"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExe}"""; Tasks: contextmenu
 Root: HKA; Subkey: "Software\Classes\*\shell\Anvil\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExe}"" ""%1"""; Tasks: contextmenu
+; ссылки-приглашения anvil:// → «anvil.exe --join ССЫЛКА» (уже открытое окно получит ссылку само)
+Root: HKA; Subkey: "Software\Classes\anvil"; ValueType: string; ValueName: ""; ValueData: "URL:Anvil"; Tasks: links; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\anvil"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""; Tasks: links
+Root: HKA; Subkey: "Software\Classes\anvil\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExe}"",0"; Tasks: links
+Root: HKA; Subkey: "Software\Classes\anvil\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExe}"" --join ""%1"""; Tasks: links
 ; PATH пользователя
 Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Tasks: addtopath; Check: NeedsAddPath(ExpandConstant('{app}'))
 

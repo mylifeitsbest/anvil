@@ -103,6 +103,7 @@ pub enum Cmd {
     CollabCopyInvite,
     CollabCopyReadInvite,
     CollabLeave,
+    CollabRegisterLinks,
     UpdateCheck,
     UpdateInstall,
     UpdateNotes,
@@ -218,6 +219,7 @@ cmds! {
     CollabCopyInvite, "collab.copy_invite", "Совместная работа: скопировать ссылку для редактирования";
     CollabCopyReadInvite, "collab.copy_read_invite", "Совместная работа: скопировать ссылку только для чтения";
     CollabLeave, "collab.leave", "Совместная работа: завершить или покинуть сессию";
+    CollabRegisterLinks, "collab.register_links", "Совместная работа: открывать ссылки anvil:// в Anvil";
     UpdateCheck, "update.check", "Обновления: проверить";
     UpdateInstall, "update.install", "Обновления: скачать и установить (перезапуск)";
     UpdateNotes, "update.notes", "Обновления: что нового (страница релиза)";

@@ -16,6 +16,7 @@ postcard.workspace = true
 serde.workspace = true
 ropey.workspace = true
 thiserror.workspace = true
+if-addrs.workspace = true
 
 [lints]
 workspace = true

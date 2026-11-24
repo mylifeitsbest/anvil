@@ -7,6 +7,7 @@ mod collab;
 mod commands;
 mod doc;
 mod fonts;
+mod links;
 mod lsp;
 mod session;
 mod theme;
@@ -94,6 +95,12 @@ fn main() -> eframe::Result<()> {
     };
     let paths = anvil_config::Paths::detect();
     let ensure_err = paths.ensure().err().map(|e| format!("не удалось создать папку настроек {}: {e}", paths.dir.display()));
+    // клик по ссылке anvil:// при уже открытом Anvil — отдать ссылку ему, второе окно не нужно
+    if let Some(link) = &args.join
+        && links::forward(&paths.dir, link)
+    {
+        return Ok(());
+    }
     let root = args.paths.first().map(|p| if p.is_dir() { p.clone() } else { p.parent().map(PathBuf::from).unwrap_or_default() });
     let project = root.as_ref().map(|r| r.join(".anvil").join("settings.toml"));
     let mut loaded = anvil_config::load_settings(&paths.settings, project.as_deref());

@@ -183,6 +183,8 @@ pub struct AnvilApp {
     pub(crate) hover_rect: Option<Rect>,
     pub(crate) problems_scroll: f32,
     pub(crate) collab: crate::collab::Collab,
+    /// Приём ссылок anvil:// от второго запуска (клик по ссылке при открытом окне).
+    links: Option<crate::links::Listener>,
     pub(crate) update: crate::update::Updater,
     /// Нажатия клавиш из сценария `--script` — уходят в следующий кадр как настоящие.
     script_keys: Vec<Event>,
@@ -333,9 +335,11 @@ impl AnvilApp {
             hover_rect: None,
             problems_scroll: 0.0,
             collab: crate::collab::Collab::default(),
+            links: None,
             update: crate::update::Updater::default(),
         };
         app.lsp.reg = lsp_reg;
+        app.links = crate::links::Listener::start(&app.paths.dir, app.wake.clone());
         app.update_init();
         for w in loaded.warnings.iter().chain(&theme_warn).chain(&key_warn).chain(&app.theme_reg.warnings.clone()).chain(&app.registry.warnings.clone()) {
             app.toast(w.clone(), ToastKind::Warn);
@@ -859,6 +863,12 @@ impl AnvilApp {
     // ------------------------------------------------------------------ фон
 
     fn poll_background(&mut self) {
+        let links: Vec<String> = self.links.as_ref().map(|l| l.rx.try_iter().collect()).unwrap_or_default();
+        for link in links {
+            self.ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+            self.ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+            self.collab_join(&link);
+        }
         let mut reload = false;
         while self.watch_rx.try_recv().is_ok() {
             reload = true;
@@ -1153,6 +1163,10 @@ impl AnvilApp {
             }
             Cmd::CollabCopyInvite => self.collab_copy_invite(false),
             Cmd::CollabCopyReadInvite => self.collab_copy_invite(true),
+            Cmd::CollabRegisterLinks => match crate::links::register() {
+                Ok(m) => self.toast(m, ToastKind::Ok),
+                Err(e) => self.toast(format!("Не удалось: {e}"), ToastKind::Error),
+            },
             Cmd::CollabLeave => {
                 if self.collab.session.is_some() {
                     self.collab_end(None);
@@ -1640,6 +1654,7 @@ impl AnvilApp {
             // пауза кадра — чтобы согласовать сценарии двух окон (только для проверок)
             "sleep" => std::thread::sleep(std::time::Duration::from_millis(rest.trim().parse().unwrap_or(0))),
             "quit" => {
+                self.links = None;
                 self.collab_end(None);
                 self.lsp_shutdown_all();
                 std::process::exit(0);
@@ -1709,6 +1724,8 @@ impl eframe::App for AnvilApp {
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        // ссылки anvil:// больше некому принимать
+        self.links = None;
         self.collab_end(None);
         self.save_session();
         self.lsp_shutdown_all();

@@ -4,7 +4,7 @@ members = ["crates/*"]
 default-members = ["crates/anvil"]
 
 [workspace.package]
-version = "0.4.1"
+version = "0.4.2"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT"
@@ -41,6 +41,7 @@ ring = "0.17"
 # обновления: HTTPS к GitHub (rustls на ring — тот же TLS, что у совместной работы), без gzip
 ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 postcard = { version = "1", default-features = false, features = ["use-std"] }
+if-addrs = "0.15"
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 
 tree-sitter = "0.27"
